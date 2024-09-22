@@ -1,0 +1,33 @@
+﻿avg_cadence 79
+avg_cadence_position (None, None)
+avg_fractional_cadence 0.984375
+avg_heart_rate 136
+avg_left_power_phase (None, None, None, None)
+avg_left_power_phase_peak (None, None, None, None)
+avg_power_position (None, None)
+avg_right_power_phase (None, None, None, None)
+avg_right_power_phase_peak (None, None, None, None)
+enhanced_avg_speed 0.0
+event lap
+event_type stop
+intensity cooldown
+lap_trigger session_end
+max_cadence 86
+max_cadence_position (None, None)
+max_fractional_cadence 0.0
+max_heart_rate 138
+max_power_position (None, None)
+message_index 22
+sport cycling
+start_time 2024-09-14 08:47:36
+sub_sport indoor_cycling
+timestamp 2024-09-14 07:46:48
+total_calories 10
+total_cycles 69
+total_distance 0.0
+total_elapsed_time 51.257
+total_timer_time 51.257
+unknown_136 3825
+unknown_137 4020
+unknown_145 14
+unknown_155 1
