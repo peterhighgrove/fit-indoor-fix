@@ -211,7 +211,30 @@ def save_lap_table_to_txt(outLapTxt_file_path, lap_tbl):
 
 # ================================================================
 # ================================================================
+
+lap_file_path = '/storage/emulated/0/documents/indoorBikeLapsLatest.txt'
+file_exist = os.path.isfile(lap_file_path)
+if not file_exist:
+    print('---------------- Lap file does not exist!')
+    exit()
+
+# File path to your FIT file
+fit_file_path = '/storage/emulated/0/Download/17090763560_ACTIVITY.fit'
+file_exist = os.path.isfile(fit_file_path)
+if not file_exist:
+    print('---------------- Fit file does not exist!')
+    exit()
+
+# File path to your destination text file
+outLapTxt_file_path = '/storage/emulated/0/documents/latestActivityLapTables.txt'
+
+
+lap_tbl_from_txt = extract_lap_data_from_txt(lap_file_path)
+
+
 # ================================================================
+
+
 
 lap_file_path = 'c:/users/peter/documents/indoorBikeLapsLatest.txt'
 file_exist = os.path.isfile(lap_file_path)
