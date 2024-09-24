@@ -277,6 +277,16 @@ def save_lap_table_to_txt(outLapTxt_file_path, lap_tbl):
             lapTxtLine += str(lap_info['avgSpeed2']) + 'km/h' 
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
+
+    print('-----------')
+    print('LAP DISTANCES')
+    print('-----------')
+
+    for lap_info in lap_tbl:
+            lapTxtLine = 'lap' + str(lap_info['lapNo']) +  ' '
+            lapTxtLine += m2km_2decStr(lap_info['lapDist']) + 'km '
+            lapTxtLine += str(lap_info['stepLen'])
+            print (lapTxtLine)
     return
 
 # ================================================================

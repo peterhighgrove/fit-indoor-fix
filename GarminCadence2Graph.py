@@ -7,21 +7,48 @@ def extract_cadence_from_fit(file_path):
     fitfile = fitparse.FitFile(file_path)
     
     # List to store cadence data and time offsets
-    cadences = []
+    level = []
+    HR = []
     timestamps = []
     
+    lapHRtbl = []
+    lapHRstart = []
+    lapHRend = []
+    recordNo = 0
+    lapNo = 0
+    
+
     # Iterate over all messages of type "record"
     for record in fitfile.get_messages('record'):
         # Extract data fields
         for record_data in record:
-            if record_data.name == 'cadence':
+            #if (recordNo / 300) == (int(recordNo/300)): print (record_data.name, record_data.value)
+            if record_data.name == 'Level':
                 # Append cadence value
-                cadences.append(record_data.value)
+                level.append(record_data.value)
+            elif record_data.name == 'heart_rate':
+                # Append timestamp value
+                HR.append(record_data.value)
             elif record_data.name == 'timestamp':
                 # Append timestamp value
                 timestamps.append(record_data.value)
 
-    return timestamps, cadences
+        if recordNo == 0 : 
+            lapHRstart.append(HR[recordNo])
+            print(timestamps[recordNo])
+        if level[recordNo] != level[recordNo - 1]: 
+            lapHRend.append(HR[recordNo - 1])
+            lapNo += 1
+            lapHRstart.append(HR[recordNo])
+            print (lapNo, timestamps[recordNo], HR[recordNo-1], HR[recordNo])
+        #print('\n')
+        recordNo += 1
+        #if recordNo > 2000: break
+    lapNo = 0
+    for lapNo in lapHRstart:
+        print (lapNo, lapHRstart[lapNo], lapHRend[lapNo])
+        lapNo += 1
+    return timestamps, level, HR, timestamps
 
 def plot_cadence(timestamps, cadences):
     # Plotting the cadence data
@@ -34,15 +61,41 @@ def plot_cadence(timestamps, cadences):
     plt.grid(True)
     plt.show()
 
+# ================================================================
+# ================================================================
+
+device = 'pc'
+#device = 'm'
+
+if device == 'm':
+    pathPrefix = '/storage/emulated/0/'
+    pathDL = 'download/'
+else:
+    pathPrefix = 'c:/users/peter/'
+    pathDL = 'downloads/'
+
+# ================================================================
+
+lap_file_path = pathPrefix + 'documents/indoorBikeLapsLatest.txt'
+file_exist = os.path.isfile(lap_file_path)
+if not file_exist:
+    print('---------------- Lap file does not exist!')
+    exit()
+
 # File path to your FIT file
-fit_file_path = 'c:/users/peter/documents/2024-09-14-09-46-48-indoorbike.fit'
-check_file = os.path.isfile(fit_file_path)
-print(check_file)
-wait = input("Press Enter to continue.")
+fit_file_path = pathPrefix + pathDL + '17090763560_ACTIVITY.fit'
+file_exist = os.path.isfile(fit_file_path)
+if not file_exist:
+    print('---------------- Fit file does not exist!')
+    exit()
+
+# File path to your destination text file
+outLapTxt_file_path = pathPrefix + 'documents/latestActivityLapTables.txt'
+
 
 # Extract cadence data
-timestamps, cadences = extract_cadence_from_fit(fit_file_path)
-wait = input("Press Enter to continue.")
+timestamps, level, HR, timestamps = extract_cadence_from_fit(fit_file_path)
+#wait = input("Press Enter to continue.")
 # Plot the cadence data
-plot_cadence(timestamps, cadences)
-wait = input("Press Enter to continue.")
+#plot_cadence(timestamps, cadences)
+#wait = input("Press Enter to continue.")
