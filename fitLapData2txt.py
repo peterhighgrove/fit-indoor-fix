@@ -1,6 +1,6 @@
 ﻿import os
 import fitparse
-import pandas as pd
+#import pandas as pd
 
 # ================================================================
 
@@ -36,7 +36,7 @@ def extract_lap_data_from_txt(lap_file_path):
     return (lap_tbl_from_txt)
 
 # ================================================================
-
+"""
 def extract_lap_data_from_txt_list(lap_file_path):
 
     # List to store the rows
@@ -61,9 +61,8 @@ def extract_lap_data_from_txt_list(lap_file_path):
             i += 1
 
     return (lap_tbl_from_txt)
-
+"""
 # ================================================================
-
 def min2minSek_longStr (minutes):
     min = int(minutes)
     sec = int(round((minutes - min) * 60,0))
@@ -73,7 +72,6 @@ def min2minSek_longStr (minutes):
     return (min_str)
 
 # ================================================================
-
 def min2minSek_shStr (minutes):
     min = int(minutes)
     sec = int(round((minutes - min) * 60,0))
@@ -84,7 +82,6 @@ def min2minSek_shStr (minutes):
     return (min_str)
 
 # ================================================================
-
 def sec2minSec_longStr (seconds):
     min = int(seconds / 60)
     sec = int(round((seconds / 60 - min) * 60,0))
@@ -94,7 +91,6 @@ def sec2minSec_longStr (seconds):
     return (min_str)
 
 # ================================================================
-
 def sec2minSec_shStr (seconds):
     min = int(seconds / 60)
     sec = int(round((seconds / 60 - min) * 60,0))
@@ -105,29 +101,41 @@ def sec2minSec_shStr (seconds):
     return (min_str)
 
 # ================================================================
-
 def m2km_0decStr (meters):
-    km_1decStr = str(round(meters / 1000, 0))
-    return (km_1decStr)
+    kmStr = str(round(meters / 1000, 0))
+    return (kmStr)
 
 # ================================================================
 def m2km_1decStr (meters):
-    km_1decStr = str(round(meters / 1000, 1))
-    return (km_1decStr)
+    kmStr = str(round(meters / 1000, 1))
+    return (kmStr)
 
 # ================================================================
 def m2km_2decStr (meters):
-    km_1decStr = str(round(meters / 1000, 2))
-    return (km_1decStr)
+    kmStr = str(round(meters / 1000, 2))
+    return (kmStr)
+
+# ================================================================
+def mps2kmph_0decStr (speed):
+    kmphStr = str(round(speed * 3600 / 1000, 0))
+    return (kmphStr)
+
+# ================================================================
+def mps2kmph_1decStr (speed):
+    kmphStr = str(round(speed * 3600 / 1000, 1))
+    return (kmphStr)
+
+# ================================================================
+def mps2kmph_2decStr (speed):
+    kmphStr = str(round(speed * 3600 / 1000, 2))
+    return (kmphStr)
 
 # ================================================================
 
 def extract_lapHRdata_from_fit(file_path):
     # Parse the FIT file
     fitfile = fitparse.FitFile(file_path)
-    #print (len(fitfile))
     
-    # List to store cadence data and time offsets
     level = []
     HR = []
     timestamps = []
@@ -160,7 +168,7 @@ def extract_lapHRdata_from_fit(file_path):
                     'lapHRend': None
                 }
                 lapRecord['lapHRstart'] = HR[recordNo]
-                print(timestamps[recordNo])
+                startTime = (str(timestamps[recordNo]).replace(':','-').replace(' ','-'))
             if level[recordNo] != level[recordNo - 1]: 
                 lapRecord['lapHRend'] = HR[recordNo - 1]
                 lapHRtbl.append(lapRecord)
@@ -182,11 +190,11 @@ def extract_lapHRdata_from_fit(file_path):
         print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'])
         lapNo += 1
     
-    return lapHRtbl
+    return lapHRtbl, startTime
 
 # ================================================================
 
-def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt):
+def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lapHRtbl, lap_tbl_from_txt):
     # Parse the FIT file
     fitfile = fitparse.FitFile(fit_file_path)
     
@@ -206,11 +214,11 @@ def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt):
             'avgCad': None,
             'maxHR': None,
             'avgHR': None,
+            'lapHRstart': None,
+            'lapHRend': None,
             'totDist': None,
             'lapDist': None,
             'avgSpeed': None,
-            'avgSpeed2': None,
-            'avgPace': None,
             'level': None,
             'stepLen': None
         }
@@ -229,13 +237,13 @@ def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt):
                 lap_info['maxHR'] = lap_data_field.value
             elif lap_data_field.name == 'avg_heart_rate':
                 lap_info['avgHR'] = lap_data_field.value
+        lap_info['lapHRstart'] = lapHRtbl[i]['lapHRstart']
+        lap_info['lapHRend'] = lapHRtbl[i]['lapHRend']
         lap_info['lapTime2'] = lap_info['lapTime'] / 60                     # (min)
         lap_info['lapTime_str'] = min2minSek_longStr(lap_info['lapTime2'])                  # (m:ss)
         lap_info['totDist'] = lap_tbl_from_txt[i]['totDist']                               # (m)
         lap_info['lapDist'] = lap_tbl_from_txt[i]['lapDist']                           # (m)
-        lap_info['avgSpeed'] = (round(lap_info['lapDist'] / lap_info['lapTime'], 1))  # (m/s)
-        lap_info['avgSpeed2'] = (round(lap_info['avgSpeed'] * 3600 / 1000, 1))            # (km/h)
-        lap_info['avgPace'] = (round(60 / lap_info['avgSpeed2'], 2))            # (min/km)
+        lap_info['avgSpeed'] = lap_info['lapDist'] / lap_info['lapTime']  # (m/s)
         lap_info['level'] = (lap_tbl_from_txt[i]['level']) 
         lap_info['stepLen'] = (round((lap_info['lapDist'] / 10) / (lap_info['avgCad'] * lap_info['lapTime'] / 60),2))  # step length acc to FFRT
 
@@ -249,7 +257,7 @@ def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt):
     return lap_tbl
 
 # ================================================================
-
+"""
 def extract_lap_data_from_fit_and_add_from_txt_list(fit_file_path, lap_tbl_from_txt):
     # Parse the FIT file
     fitfile = fitparse.FitFile(fit_file_path)
@@ -297,7 +305,7 @@ def extract_lap_data_from_fit_and_add_from_txt_list(fit_file_path, lap_tbl_from_
         #wait = input("Press Enter to continue.")
 
     return lap_tbl
-
+"""
 # ================================================================
 """
 def display_lap_table(lap_tbl):
@@ -320,9 +328,11 @@ def save_lap_table_to_txt(outLapTxt_file_path, lap_tbl):
     for lap_info in lap_tbl:
         if lap_info['wktStepType'] == 'active':
             lapTxtLine = 'lap' + str(lap_info['lapNo']) + ' lv' + str(lap_info['level']) +  ' '
-            lapTxtLine += str(lap_info['maxHR']) + 'maxHR ' + sec2minSec_shStr(lap_info['lapTime']) + 'min '
+            lapTxtLine += str(lap_info['lapHRstart']) + '+' + str(lap_info['lapHRend'] - lap_info['lapHRstart']) +  '->'
+            lapTxtLine += str(lap_info['maxHR']) + 'maxHR '
+            lapTxtLine += sec2minSec_shStr(lap_info['lapTime']) + 'min '
             lapTxtLine += str(lap_info['avgCad']) + 'rpm ' + m2km_1decStr(lap_info['lapDist']) + 'km '
-            lapTxtLine += str(lap_info['avgSpeed2']) + 'km/h' 
+            lapTxtLine += mps2kmph_1decStr(lap_info['avgSpeed']) + 'km/h' 
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
 
@@ -336,11 +346,33 @@ def save_lap_table_to_txt(outLapTxt_file_path, lap_tbl):
     for lap_info in lap_tbl:
         if lap_info['wktStepType'] == 'rest':
             lapTxtLine = 'lap' + str(lap_info['lapNo']) + ' lv' + str(lap_info['level']) +  ' '
+            lapTxtLine += str(lap_info['maxHR']) + 'maxHR'
+            lapTxtLine += str(lap_info['lapHRend'] - lap_info['lapHRstart']) + '->' + str(lap_info['lapHRend']) +  ' '
             lapTxtLine += sec2minSec_shStr(lap_info['lapTime']) + 'min '
             lapTxtLine += str(lap_info['avgCad']) + 'rpm ' + m2km_1decStr(lap_info['lapDist']) + 'km '
-            lapTxtLine += str(lap_info['avgSpeed2']) + 'km/h' 
+            lapTxtLine += mps2kmph_1decStr(lap_info['avgSpeed']) + 'km/h' 
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
+
+    print('-----------')
+    print('ALL lap data ')
+    print('-----------')
+    outLapTxt_file.write ('-----------\n')
+    outLapTxt_file.write ('ALL lap data\n')
+    outLapTxt_file.write ('-----------\n')
+
+    lapTxtLine = 'lapNo;level;lapHRstart;lapHRend;maxHR;avgHR;lapTime;avgCad;lapDist;avgSpeed'
+    print (lapTxtLine)
+    outLapTxt_file.write (lapTxtLine + '\n')
+    for lap_info in lap_tbl:
+        lapTxtLine = str(lap_info['lapNo']) + ';' + str(lap_info['level']) + ';'
+        lapTxtLine += str(lap_info['lapHRstart']) + ';' + str(lap_info['lapHRend']) +  ';'
+        lapTxtLine += str(lap_info['maxHR']) + ';' + str(lap_info['avgHR']) + ';'
+        lapTxtLine += str(lap_info['lapTime']) + ';'
+        lapTxtLine += str(lap_info['avgCad']) + ';' + str(lap_info['lapDist']) + ';'
+        lapTxtLine += str(lap_info['avgSpeed'])
+        print (lapTxtLine)
+        outLapTxt_file.write (lapTxtLine + '\n')
 
     print('-----------')
     print('LAP DISTANCES')
@@ -381,21 +413,14 @@ if not file_exist:
     print('---------------- Fit file does not exist!')
     exit()
 
-# File path to your destination text file
-outLapTxt_file_path = pathPrefix + 'documents/latestActivityLapTables.txt'
 
+
+lapHRtbl, startTime = extract_lapHRdata_from_fit(fit_file_path)
+# File path to your destination text file
+outLapTxt_file_path = pathPrefix + 'documents/' + startTime + '-LapTables.txt'
 
 lap_tbl_from_txt = extract_lap_data_from_txt(lap_file_path)
-
-lapHRtbl = extract_lapHRdata_from_fit(fit_file_path)
-# Output the nested list
-# print(lap_tbl_from_txt)
-
-# Extract lap cadence data
-lap_tbl = extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt, lapHRtbl)
-
-# Display the lap cadence data in a lap_tbl_from_txt
-# display_lap_table(lap_tbl)
+lap_tbl = extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lapHRtbl, lap_tbl_from_txt)
 
 save_lap_table_to_txt(outLapTxt_file_path, lap_tbl)
 
