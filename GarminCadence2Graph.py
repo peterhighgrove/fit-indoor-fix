@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import fitparse
 
-def extract_cadence_from_fit(file_path):
+def extract_lapHRdata_from_fit(file_path):
     # Parse the FIT file
     fitfile = fitparse.FitFile(file_path)
     #print (len(fitfile))
@@ -108,7 +108,7 @@ outLapTxt_file_path = pathPrefix + 'documents/latestActivityLapTables.txt'
 
 
 # Extract cadence data
-timestamps, level, HR, timestamps = extract_cadence_from_fit(fit_file_path)
+timestamps, level, HR, timestamps = extract_lapHRdata_from_fit(fit_file_path)
 #wait = input("Press Enter to continue.")
 # Plot the cadence data
 #plot_cadence(timestamps, cadences)

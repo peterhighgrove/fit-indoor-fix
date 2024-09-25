@@ -122,6 +122,70 @@ def m2km_2decStr (meters):
 
 # ================================================================
 
+def extract_lapHRdata_from_fit(file_path):
+    # Parse the FIT file
+    fitfile = fitparse.FitFile(file_path)
+    #print (len(fitfile))
+    
+    # List to store cadence data and time offsets
+    level = []
+    HR = []
+    timestamps = []
+    
+    lapHRtbl = []
+    recordNo = 0
+    lapNo = 0
+    
+
+    # Iterate over all messages of type "record"
+    for record in fitfile.get_messages('record'):
+        # Extract data fields
+        for record_data in record:
+            #if (recordNo / 300) == (int(recordNo/300)): print (record_data.name, record_data.value)
+            if record_data.name == 'Level':
+                # Append cadence value
+                level.append(record_data.value)
+            elif record_data.name == 'heart_rate':
+                # Append timestamp value
+                HR.append(record_data.value)
+            elif record_data.name == 'timestamp':
+                # Append timestamp value
+                timestamps.append(record_data.value)
+
+        if recordNo == 0 or level[recordNo] != level[recordNo - 1]: 
+            
+            if recordNo == 0:
+                lapRecord = {
+                    'lapHRstart': None,
+                    'lapHRend': None
+                }
+                lapRecord['lapHRstart'] = HR[recordNo]
+                print(timestamps[recordNo])
+            if level[recordNo] != level[recordNo - 1]: 
+                lapRecord['lapHRend'] = HR[recordNo - 1]
+                lapHRtbl.append(lapRecord)
+                lapNo += 1
+                lapRecord = {
+                    'lapHRstart': None,
+                    'lapHRend': None
+                }
+                lapRecord['lapHRstart'] = HR[recordNo]
+                print (lapNo, timestamps[recordNo], HR[recordNo-1], HR[recordNo])
+            
+        recordNo += 1
+
+    lapRecord['lapHRend'] = HR[recordNo - 1]
+    lapHRtbl.append(lapRecord)
+
+    lapNo = 0
+    for lapRecord in lapHRtbl:
+        print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'])
+        lapNo += 1
+    
+    return lapHRtbl
+
+# ================================================================
+
 def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt):
     # Parse the FIT file
     fitfile = fitparse.FitFile(fit_file_path)
@@ -323,12 +387,12 @@ outLapTxt_file_path = pathPrefix + 'documents/latestActivityLapTables.txt'
 
 lap_tbl_from_txt = extract_lap_data_from_txt(lap_file_path)
 
-
+lapHRtbl = extract_lapHRdata_from_fit(fit_file_path)
 # Output the nested list
 # print(lap_tbl_from_txt)
 
 # Extract lap cadence data
-lap_tbl = extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt)
+lap_tbl = extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lap_tbl_from_txt, lapHRtbl)
 
 # Display the lap cadence data in a lap_tbl_from_txt
 # display_lap_table(lap_tbl)
