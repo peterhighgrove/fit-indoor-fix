@@ -5,6 +5,7 @@ import fitparse
 def extract_cadence_from_fit(file_path):
     # Parse the FIT file
     fitfile = fitparse.FitFile(file_path)
+    #print (len(fitfile))
     
     # List to store cadence data and time offsets
     level = []
@@ -12,8 +13,6 @@ def extract_cadence_from_fit(file_path):
     timestamps = []
     
     lapHRtbl = []
-    lapHRstart = []
-    lapHRend = []
     recordNo = 0
     lapNo = 0
     
@@ -33,21 +32,36 @@ def extract_cadence_from_fit(file_path):
                 # Append timestamp value
                 timestamps.append(record_data.value)
 
-        if recordNo == 0 : 
-            lapHRstart.append(HR[recordNo])
-            print(timestamps[recordNo])
-        if level[recordNo] != level[recordNo - 1]: 
-            lapHRend.append(HR[recordNo - 1])
-            lapNo += 1
-            lapHRstart.append(HR[recordNo])
-            print (lapNo, timestamps[recordNo], HR[recordNo-1], HR[recordNo])
-        #print('\n')
+        if recordNo == 0 or level[recordNo] != level[recordNo - 1]: 
+            
+            if recordNo == 0:
+                lapRecord = {
+                    'lapHRstart': None,
+                    'lapHRend': None
+                }
+                lapRecord['lapHRstart'] = HR[recordNo]
+                print(timestamps[recordNo])
+            if level[recordNo] != level[recordNo - 1]: 
+                lapRecord['lapHRend'] = HR[recordNo - 1]
+                lapHRtbl.append(lapRecord)
+                lapNo += 1
+                lapRecord = {
+                    'lapHRstart': None,
+                    'lapHRend': None
+                }
+                lapRecord['lapHRstart'] = HR[recordNo]
+                print (lapNo, timestamps[recordNo], HR[recordNo-1], HR[recordNo])
+            
         recordNo += 1
-        #if recordNo > 2000: break
+
+    lapRecord['lapHRend'] = HR[recordNo - 1]
+    lapHRtbl.append(lapRecord)
+
     lapNo = 0
-    for lapNo in lapHRstart:
-        print (lapNo, lapHRstart[lapNo], lapHRend[lapNo])
+    for lapRecord in lapHRtbl:
+        print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'])
         lapNo += 1
+    
     return timestamps, level, HR, timestamps
 
 def plot_cadence(timestamps, cadences):
