@@ -200,6 +200,7 @@ def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lapHRtbl, lap_tbl_
     
     # Initialize lists to store lap data
     lap_tbl = []
+    totTime = 0
     i = 0
     # Iterate over all messages of type "lap"
     for lap in fitfile.get_messages('lap'):
@@ -247,6 +248,7 @@ def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lapHRtbl, lap_tbl_
         lap_info['level'] = (lap_tbl_from_txt[i]['level']) 
         lap_info['stepLen'] = (round((lap_info['lapDist'] / 10) / (lap_info['avgCad'] * lap_info['lapTime'] / 60),2))  # step length acc to FFRT
 
+        totTime += lap_info['lapTime']
         i += 1
 
         # Append the lap information to the list
@@ -254,7 +256,7 @@ def extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lapHRtbl, lap_tbl_
         #print(lap_info)
         #wait = input("Press Enter to continue.")
 
-    return lap_tbl
+    return lap_tbl, lap_info['totDist'], totTime
 
 # ================================================================
 """
@@ -413,14 +415,13 @@ if not file_exist:
     print('---------------- Fit file does not exist!')
     exit()
 
-
-
 lapHRtbl, startTime = extract_lapHRdata_from_fit(fit_file_path)
-# File path to your destination text file
-outLapTxt_file_path = pathPrefix + 'documents/' + startTime + '-LapTables.txt'
-
 lap_tbl_from_txt = extract_lap_data_from_txt(lap_file_path)
-lap_tbl = extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lapHRtbl, lap_tbl_from_txt)
+
+lap_tbl, totDist, totTime = extract_lap_data_from_fit_and_add_from_txt(fit_file_path, lapHRtbl, lap_tbl_from_txt)
+
+# File path to your destination text file
+outLapTxt_file_path = pathPrefix + 'documents/' + startTime + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTime).replace(':','.') + 'min-LapTables.txt'
 
 save_lap_table_to_txt(outLapTxt_file_path, lap_tbl)
 
