@@ -122,6 +122,7 @@ def extract_lap_data_from_fit(fit_file_path):
         # Dictionary to store lap information
         lapRecord = {
             'lapNo': None,
+            'startTime': None,
             'endTime': None,
             'wktStepType': None,
             'lapTime': None,
@@ -144,7 +145,7 @@ def extract_lap_data_from_fit(fit_file_path):
             elif lap_data_field.name == 'total_timer_time':
                 lapRecord['lapTime'] = int(round(lap_data_field.value,0))
             elif lap_data_field.name == 'start_time':
-                lapRecord['endTime'] = lap_data_field.value
+                lapRecord['startTime'] = lap_data_field.value
             elif lap_data_field.name == 'intensity':
                 lapRecord['wktStepType'] = lap_data_field.value
             elif lap_data_field.name == 'avg_cadence':
@@ -153,9 +154,11 @@ def extract_lap_data_from_fit(fit_file_path):
                 lapRecord['maxHR'] = lap_data_field.value
             elif lap_data_field.name == 'avg_heart_rate':
                 lapRecord['avgHR'] = lap_data_field.value
-        print(lapRecord['endTime'])
-        lapRecord['endTime'] = lapRecord['endTime'] + timedelta(seconds=lapRecord['lapTime'])
-        print(lapRecord['endTime'])
+        print('start:', lapRecord['startTime'])
+        lapRecord['endTime'] = lapRecord['startTime'] + timedelta(seconds=lapRecord['lapTime'])
+        if i > 0:
+            lapTable[i-1]['endTime'] = lapRecord['startTime'] + timedelta(seconds=-1)
+        print('end:', lapRecord['endTime'])
 
         totTime += lapRecord['lapTime']
         i += 1
@@ -165,8 +168,9 @@ def extract_lap_data_from_fit(fit_file_path):
         #print(lapRecord)
         #wait = input("Press Enter to continue.")
 
-        lapCountLapFit = len(lapTable)
-
+    lapCountLapFit = len(lapTable)
+    for lapRecord in lapTable:
+        print(lapRecord['startTime'], lapRecord['endTime'])
     return lapTable, totTime, lapCountLapFit
 
 # ================================================================
@@ -210,32 +214,28 @@ def extract_lapHRdata_from_fit(fitFile_path, lapTable):
                 'lapHRend': None
             }
             lapRecord['lapHRstart'] = HR[recordNo]
-            print (timestamps[recordNo])
+            print ('first rec: ', timestamps[recordNo])
             endTime = (str(timestamps[recordNo]).replace(':','-').replace(' ','-'))
         
         if lapNo < (len(lapTable)-1) and timestamps[recordNo] == lapTable[lapNo]['endTime']: 
             lapRecord['lapHRend'] = HR[recordNo - 1]
-            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
             lapHRtbl.append(lapRecord)
-            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
             
             #if lapNo < len(lapTable) - 1:  
             lapNo += 1
-            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
             lapRecord = {
                 'lapHRstart': None,
                 'lapHRend': None
             }
             lapRecord['lapHRstart'] = HR[recordNo]
-            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+            #print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
 
         recordNo += 1
         #print(recordNo, lapNo)
         #if recordNo == 970: exit()
 
-    print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
     lapRecord['lapHRend'] = HR[recordNo - 1]
-    print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+    #print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
     lapHRtbl.append(lapRecord)
 
     #"""
@@ -246,6 +246,7 @@ def extract_lapHRdata_from_fit(fitFile_path, lapTable):
     #"""
 
     lapCountHRfit = len(lapHRtbl)
+    print ('last rec: ', timestamps[recordNo - 1])
 
     return lapHRtbl, endTime, lapCountHRfit
 
@@ -323,7 +324,7 @@ def saveLapTable_to_txt(outLapTxt_file_path, lapTable):
     outLapTxt_file.write ('ALL lap data\n')
     outLapTxt_file.write ('-----------\n')
 
-    lapTxtLine = 'lapNo;level;lapHRstart;lapHRend;maxHR;avgHR;lapTime;avgCad;lapDist;totDist;avgSpeed'
+    lapTxtLine = 'lapNo;level;lapHRstart;lapHRend;maxHR;avgHR;lapTime;avgCad;lapDist;totDist;wktStepType;avgSpeed'
     print (lapTxtLine)
     outLapTxt_file.write (lapTxtLine + '\n')
     for lapRecord in lapTable:
@@ -333,6 +334,7 @@ def saveLapTable_to_txt(outLapTxt_file_path, lapTable):
         lapTxtLine += str(lapRecord['lapTime']) + ';'
         lapTxtLine += str(lapRecord['avgCad']) + ';'
         lapTxtLine += str(lapRecord['lapDist']) + ';' + lapTxtLine + str(lapRecord['totDist']) + ';'
+        lapTxtLine += str(lapRecord['wktStepType']) + ';'
         lapTxtLine += str(lapRecord['avgSpeed'])
         print (lapTxtLine)
         outLapTxt_file.write (lapTxtLine + '\n')
@@ -340,13 +342,18 @@ def saveLapTable_to_txt(outLapTxt_file_path, lapTable):
     print('-----------')
     print('LAP DISTANCES')
     print('-----------')
+    outLapTxt_file.write ('-----------\n')
+    outLapTxt_file.write ('LAP DISTANCES\n')
+    outLapTxt_file.write ('-----------\n')
 
     for lapRecord in lapTable:
             lapTxtLine = 'lap' + str(lapRecord['lapNo']) +  ' '
             lapTxtLine += m2km_2decStr(lapRecord['lapDist']) + 'km '
             lapTxtLine += str(lapRecord['stepLen'])
             print (lapTxtLine)
+            outLapTxt_file.write (lapTxtLine + '\n')
     print('Totaldist: ' + m2km_2decStr(totDist) + ' km')
+    outLapTxt_file.write ('Totaldist: ' + m2km_2decStr(totDist) + ' km' + '\n')
     
     return
 
