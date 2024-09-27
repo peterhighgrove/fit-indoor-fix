@@ -302,7 +302,7 @@ def saveLapTable_to_txt(outLapTxt_file_path, lapTable):
     outLapTxt_file.write ('ALL lap data\n')
     outLapTxt_file.write ('-----------\n')
 
-    lapTxtLine = 'lapNo;level;lapHRstart;lapHRend;maxHR;avgHR;lapTime;avgCad;lapDist;avgSpeed'
+    lapTxtLine = 'lapNo;level;lapHRstart;lapHRend;maxHR;avgHR;lapTime;avgCad;lapDist;totDist;avgSpeed'
     print (lapTxtLine)
     outLapTxt_file.write (lapTxtLine + '\n')
     for lapRecord in lapTable:
@@ -311,7 +311,7 @@ def saveLapTable_to_txt(outLapTxt_file_path, lapTable):
         lapTxtLine += str(lapRecord['maxHR']) + ';' + str(lapRecord['avgHR']) + ';'
         lapTxtLine += str(lapRecord['lapTime']) + ';'
         lapTxtLine += str(lapRecord['avgCad']) + ';'
-        lapTxtLine += str(lapRecord['lapDist']) + ';' + lapTxtLine + str(lapRecord['totDist'])
+        lapTxtLine += str(lapRecord['lapDist']) + ';' + lapTxtLine + str(lapRecord['totDist']) + ';'
         lapTxtLine += str(lapRecord['avgSpeed'])
         print (lapTxtLine)
         outLapTxt_file.write (lapTxtLine + '\n')
@@ -333,7 +333,7 @@ def saveLapTable_to_txt(outLapTxt_file_path, lapTable):
 # ================================================================
 
 #device = 'pc'
-device = 'pc2'
+device = 'pc1drv'
 #device = 'm'
 
 if device == 'm':
