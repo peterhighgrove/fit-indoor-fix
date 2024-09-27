@@ -32,3 +32,235 @@ unknown_137 4020
 unknown_145 14
 unknown_155 1
 
+ record (#20)
+Level: 1.0
+Training_session: 0.0 [Set]
+cadence: 70 [rpm]
+distance: 0.0 [m]
+fractional_cadence: 0.0 [rpm]
+heart_rate: 132 [bpm]
+timestamp: 2024-09-21 10:01:40
+unknown_108: 3460
+unknown_134: 100
+unknown_135: 1
+unknown_136: 131
+unknown_137: 54
+unknown_138: 54
+unknown_143: 53
+unknown_144: 132
+unknown_87: 18700
+
+ record (#20)
+Level: 1.0
+Training_session: 0.0 [Set]
+cadence: 70 [rpm]
+distance: 0.0 [m]
+fractional_cadence: 0.0 [rpm]
+heart_rate: 132 [bpm]
+timestamp: 2024-09-21 10:01:41
+unknown_108: 3460
+unknown_134: 100
+unknown_135: 1
+unknown_136: 131
+unknown_137: 54
+unknown_138: 54
+unknown_143: 53
+unknown_144: 132
+unknown_87: 18700
+
+
+
+
+lap (#19)
+avg_cadence: 78 [rpm]
+avg_cadence_position: (None, None) [rpm]
+avg_combined_pedal_smoothness: None [percent]
+avg_fractional_cadence: 0.078125 [rpm]
+avg_heart_rate: 146 [bpm]
+avg_left_pco: None [mm]
+avg_left_pedal_smoothness: None [percent]
+avg_left_power_phase: (None, None, None, None) [degrees]
+avg_left_power_phase_peak: (None, None, None, None) [degrees]
+avg_left_torque_effectiveness: None [percent]
+avg_power: None [watts]
+avg_power_position: (None, None) [watts]
+avg_right_pco: None [mm]
+avg_right_pedal_smoothness: None [percent]
+avg_right_power_phase: (None, None, None, None) [degrees]
+avg_right_power_phase_peak: (None, None, None, None) [degrees]
+avg_right_torque_effectiveness: None [percent]
+avg_stance_time: None [ms]
+avg_stance_time_balance: None [percent]
+avg_stance_time_percent: None [percent]
+avg_step_length: None [mm]
+avg_stroke_distance: None [m]
+avg_temperature: None [C]
+avg_vertical_oscillation: None [mm]
+avg_vertical_ratio: None [percent]
+end_position_lat: None [semicircles]
+end_position_long: None [semicircles]
+enhanced_avg_altitude: None [m]
+enhanced_avg_speed: 0.0 [m/s]
+enhanced_max_altitude: None [m]
+enhanced_max_speed: None [m/s]
+enhanced_min_altitude: None [m]
+event: lap
+event_group: None
+event_type: stop
+first_length_index: None
+intensity: rest
+lap_trigger: time
+left_right_balance: None
+max_cadence: 99 [rpm]
+max_cadence_position: (None, None) [rpm]
+max_fractional_cadence: 0.0 [rpm]
+max_heart_rate: 153 [bpm]
+max_power: None [watts]
+max_power_position: (None, None) [watts]
+max_temperature: None [C]
+message_index: 30
+normalized_power: None [watts]
+num_active_lengths: None [lengths]
+num_lengths: None [lengths]
+sport: cycling
+stand_count: None
+start_position_lat: None [semicircles]
+start_position_long: None [semicircles]
+start_time: 2024-09-21 09:56:13
+sub_sport: indoor_cycling
+swim_stroke: None
+time_standing: None [s]
+timestamp: 2024-09-21 08:52:11
+total_ascent: None [m]
+total_calories: 26 [kcal]
+total_cycles: 156 [cycles]
+total_descent: None [m]
+total_distance: 0.0 [m]
+total_elapsed_time: 120.0 [s]
+total_fat_calories: None [kcal]
+total_fractional_cycles: None [cycles]
+total_moving_time: None [s]
+total_timer_time: 120.0 [s]
+total_work: None [J]
+wkt_step_index: 6
+unknown_124: None
+unknown_125: None
+unknown_126: None
+unknown_136: 4129
+unknown_137: 4709
+unknown_143: None
+unknown_145: 34
+unknown_149: None
+unknown_152: None
+unknown_154: None
+unknown_155: 2
+unknown_156: None
+unknown_157: None
+unknown_161: None
+unknown_27: None
+unknown_28: None
+unknown_29: None
+unknown_30: None
+unknown_70: None
+unknown_72: None
+unknown_73: None
+unknown_90: None
+unknown_96: None
+unknown_97: None
+
+ lap (#19)
+avg_cadence: 71 [rpm]
+avg_cadence_position: (None, None) [rpm]
+avg_combined_pedal_smoothness: None [percent]
+avg_fractional_cadence: 0.328125 [rpm]
+avg_heart_rate: 133 [bpm]
+avg_left_pco: None [mm]
+avg_left_pedal_smoothness: None [percent]
+avg_left_power_phase: (None, None, None, None) [degrees]
+avg_left_power_phase_peak: (None, None, None, None) [degrees]
+avg_left_torque_effectiveness: None [percent]
+avg_power: None [watts]
+avg_power_position: (None, None) [watts]
+avg_right_pco: None [mm]
+avg_right_pedal_smoothness: None [percent]
+avg_right_power_phase: (None, None, None, None) [degrees]
+avg_right_power_phase_peak: (None, None, None, None) [degrees]
+avg_right_torque_effectiveness: None [percent]
+avg_stance_time: None [ms]
+avg_stance_time_balance: None [percent]
+avg_stance_time_percent: None [percent]
+avg_step_length: None [mm]
+avg_stroke_distance: None [m]
+avg_temperature: None [C]
+avg_vertical_oscillation: None [mm]
+avg_vertical_ratio: None [percent]
+end_position_lat: None [semicircles]
+end_position_long: None [semicircles]
+enhanced_avg_altitude: None [m]
+enhanced_avg_speed: 0.0 [m/s]
+enhanced_max_altitude: None [m]
+enhanced_max_speed: None [m/s]
+enhanced_min_altitude: None [m]
+event: lap
+event_group: None
+event_type: stop
+first_length_index: None
+intensity: cooldown
+lap_trigger: session_end
+left_right_balance: None
+max_cadence: 79 [rpm]
+max_cadence_position: (None, None) [rpm]
+max_fractional_cadence: 0.0 [rpm]
+max_heart_rate: 140 [bpm]
+max_power: None [watts]
+max_power_position: (None, None) [watts]
+max_temperature: None [C]
+message_index: 31
+normalized_power: None [watts]
+num_active_lengths: None [lengths]
+num_lengths: None [lengths]
+sport: cycling
+stand_count: None
+start_position_lat: None [semicircles]
+start_position_long: None [semicircles]
+start_time: 2024-09-21 09:58:13
+sub_sport: indoor_cycling
+swim_stroke: None
+time_standing: None [s]
+timestamp: 2024-09-21 08:52:11
+total_ascent: None [m]
+total_calories: 41 [kcal]
+total_cycles: 297 [cycles]
+total_descent: None [m]
+total_distance: 0.0 [m]
+total_elapsed_time: 248.722 [s]
+total_fat_calories: None [kcal]
+total_fractional_cycles: None [cycles]
+total_moving_time: None [s]
+total_timer_time: 248.722 [s]
+total_work: None [J]
+wkt_step_index: 8
+unknown_124: None
+unknown_125: None
+unknown_126: None
+unknown_136: 3695
+unknown_137: 4151
+unknown_143: None
+unknown_145: 67
+unknown_149: None
+unknown_152: None
+unknown_154: None
+unknown_155: 5
+unknown_156: None
+unknown_157: None
+unknown_161: None
+unknown_27: None
+unknown_28: None
+unknown_29: None
+unknown_30: None
+unknown_70: None
+unknown_72: None
+unknown_73: None
+unknown_90: None
+unknown_96: None
+unknown_97: None

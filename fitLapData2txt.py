@@ -1,4 +1,5 @@
 ﻿import os
+from datetime import datetime, time, timedelta
 import fitparse
 
 # ================================================================
@@ -105,73 +106,6 @@ def extract_lap_data_from_txt(lap_txtFile_path):
 
 # ================================================================
 
-def extract_lapHRdata_from_fit(fitFile_path):
-    print('--extract_lapHRdata_from_fit')
-    # Parse the FIT txtFile
-    fitfile = fitparse.FitFile(fitFile_path)
-    
-    CIQlevel = []
-    HR = []
-    timestamps = []
-    
-    lapHRtbl = []
-    recordNo = 0
-    lapNo = 0
-    
-
-    # Iterate over all messages of type "record"
-    for record in fitfile.get_messages('record'):
-        # Extract data fields
-        for record_data in record:
-            #if (recordNo / 300) == (int(recordNo/300)): print (record_data.name, record_data.value)
-            if record_data.name == 'Level':
-                # Append cadence value
-                CIQlevel.append(record_data.value)
-            elif record_data.name == 'heart_rate':
-                # Append timestamp value
-                HR.append(record_data.value)
-            elif record_data.name == 'timestamp':
-                # Append timestamp value
-                timestamps.append(record_data.value)
-
-        if recordNo == 0 or CIQlevel[recordNo] != CIQlevel[recordNo - 1]: 
-            
-            if recordNo == 0:
-                lapRecord = {
-                    'lapHRstart': None,
-                    'lapHRend': None
-                }
-                lapRecord['lapHRstart'] = HR[recordNo]
-                startTime = (str(timestamps[recordNo]).replace(':','-').replace(' ','-'))
-            if CIQlevel[recordNo] != CIQlevel[recordNo - 1]: 
-                lapRecord['lapHRend'] = HR[recordNo - 1]
-                lapHRtbl.append(lapRecord)
-                lapNo += 1
-                lapRecord = {
-                    'lapHRstart': None,
-                    'lapHRend': None
-                }
-                lapRecord['lapHRstart'] = HR[recordNo]
-                #print (lapNo, timestamps[recordNo], HR[recordNo-1], HR[recordNo])
-            
-        recordNo += 1
-
-    lapRecord['lapHRend'] = HR[recordNo - 1]
-    lapHRtbl.append(lapRecord)
-
-    """
-    lapNo = 0
-    for lapRecord in lapHRtbl:
-        print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'])
-        lapNo += 1
-    """
-
-    lapCountHRfit = len(lapHRtbl)
-
-    return lapHRtbl, startTime, lapCountHRfit
-
-# ================================================================
-
 def extract_lap_data_from_fit(fit_file_path):
     print('---extract_lap_data_from_fit')
     # Parse the FIT txtFile
@@ -183,10 +117,12 @@ def extract_lap_data_from_fit(fit_file_path):
     i = 0
     # Iterate over all messages of type "lap"
     for lap in fitfile.get_messages('lap'):
+        #print('\n',lap)
         
         # Dictionary to store lap information
         lapRecord = {
             'lapNo': None,
+            'endTime': None,
             'wktStepType': None,
             'lapTime': None,
             'avgCad': None,
@@ -205,16 +141,21 @@ def extract_lap_data_from_fit(fit_file_path):
                 #print (lap_data_field.name, lap_data_field.value)
             if lap_data_field.name == 'message_index':
                 lapRecord['lapNo'] = lap_data_field.value
-            elif lap_data_field.name == 'intensity':
-                lapRecord['wktStepType'] = lap_data_field.value
             elif lap_data_field.name == 'total_timer_time':
                 lapRecord['lapTime'] = int(round(lap_data_field.value,0))
+            elif lap_data_field.name == 'start_time':
+                lapRecord['endTime'] = lap_data_field.value
+            elif lap_data_field.name == 'intensity':
+                lapRecord['wktStepType'] = lap_data_field.value
             elif lap_data_field.name == 'avg_cadence':
                 lapRecord['avgCad'] = lap_data_field.value
             elif lap_data_field.name == 'max_heart_rate':
                 lapRecord['maxHR'] = lap_data_field.value
             elif lap_data_field.name == 'avg_heart_rate':
                 lapRecord['avgHR'] = lap_data_field.value
+        print(lapRecord['endTime'])
+        lapRecord['endTime'] = lapRecord['endTime'] + timedelta(seconds=lapRecord['lapTime'])
+        print(lapRecord['endTime'])
 
         totTime += lapRecord['lapTime']
         i += 1
@@ -227,6 +168,86 @@ def extract_lap_data_from_fit(fit_file_path):
         lapCountLapFit = len(lapTable)
 
     return lapTable, totTime, lapCountLapFit
+
+# ================================================================
+
+def extract_lapHRdata_from_fit(fitFile_path, lapTable):
+    print('--extract_lapHRdata_from_fit')
+    # Parse the FIT txtFile
+    fitfile = fitparse.FitFile(fitFile_path)
+    
+    CIQlevel = []
+    HR = []
+    timestamps = []
+    
+    lapHRtbl = []
+    recordNo = 0
+    lapNo = 0
+    
+
+    # Iterate over all messages of type "record"
+    for record in fitfile.get_messages('record'):
+        #print('\n',record)
+        # Extract data fields
+        for record_data in record:
+            #if (recordNo / 300) == (int(recordNo/300)): print (record_data.name, record_data.value)
+            if record_data.name == 'Level':
+                # Append cadence value
+                CIQlevel.append(record_data.value)
+            elif record_data.name == 'heart_rate':
+                # Append timestamp value
+                HR.append(record_data.value)
+            elif record_data.name == 'timestamp':
+                # Append timestamp value
+                timestamps.append(record_data.value)
+            #print(record_data)
+
+        #if recordNo == 0 or (timestamps[recordNo] == lapTable[lapNo]['endTime']): 
+            
+        if recordNo == 0:
+            lapRecord = {
+                'lapHRstart': None,
+                'lapHRend': None
+            }
+            lapRecord['lapHRstart'] = HR[recordNo]
+            print (timestamps[recordNo])
+            endTime = (str(timestamps[recordNo]).replace(':','-').replace(' ','-'))
+        
+        if lapNo < (len(lapTable)-1) and timestamps[recordNo] == lapTable[lapNo]['endTime']: 
+            lapRecord['lapHRend'] = HR[recordNo - 1]
+            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+            lapHRtbl.append(lapRecord)
+            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+            
+            #if lapNo < len(lapTable) - 1:  
+            lapNo += 1
+            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+            lapRecord = {
+                'lapHRstart': None,
+                'lapHRend': None
+            }
+            lapRecord['lapHRstart'] = HR[recordNo]
+            print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+
+        recordNo += 1
+        #print(recordNo, lapNo)
+        #if recordNo == 970: exit()
+
+    print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+    lapRecord['lapHRend'] = HR[recordNo - 1]
+    print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'], recordNo)
+    lapHRtbl.append(lapRecord)
+
+    #"""
+    lapNo = 0
+    for lapRecord in lapHRtbl:
+        print (lapNo, lapRecord['lapHRstart'], lapRecord['lapHRend'])
+        lapNo += 1
+    #"""
+
+    lapCountHRfit = len(lapHRtbl)
+
+    return lapHRtbl, endTime, lapCountHRfit
 
 # ================================================================
 
@@ -363,8 +384,8 @@ if not file_exist:
     exit()
 
 lapFromTxtTbl, lapCountTxt = extract_lap_data_from_txt(lap_txtFile_path)
-lapHRtbl, startTime, lapCountHRfit = extract_lapHRdata_from_fit(fit_file_path)
 lapFitTable, totTime, lapCountLapFit = extract_lap_data_from_fit(fit_file_path)
+lapHRtbl, endTime, lapCountHRfit = extract_lapHRdata_from_fit(fit_file_path, lapFitTable)
 
 print('lapCount in all files: ', lapCountTxt, lapCountHRfit, lapCountLapFit)
 if lapCountTxt != lapCountHRfit: exit()
@@ -374,7 +395,7 @@ if lapCountHRfit != lapCountLapFit: exit()
 lapTable, totDist = add_from_txt_and_fitHR(lapFitTable, lapHRtbl, lapFromTxtTbl)
 
 # File path to your destination text txtFile
-outLapTxt_file_path = pathPrefix + pathDL + startTime + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTime).replace(':','.') + 'min-LapTables.txt'
+outLapTxt_file_path = pathPrefix + pathDL + endTime + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTime).replace(':','.') + 'min-LapTables.txt'
 
 saveLapTable_to_txt(outLapTxt_file_path, lapTable)
 
