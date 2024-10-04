@@ -384,7 +384,7 @@ if not file_exist:
     exit()
 
 # File path to your FIT txtFile
-fit_file_path = pathPrefix + pathDL + '2024-09-24-16-40-47-bike-indoorBike-0.0km-00-55-15tim-Epix Pro gen 2.fit'
+fit_file_path = pathPrefix + pathDL + '2024-09-25-16-23-08-bike-indoorBike-0.0km-00-09-16tim-Epix Pro gen 2.fit'
 file_exist = os.path.isfile(fit_file_path)
 if not file_exist:
     print('---------------- Fit txtFile does not exist!')
