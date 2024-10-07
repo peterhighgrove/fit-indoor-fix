@@ -1,6 +1,9 @@
 ﻿import os
+import sys
 from datetime import datetime, time, timedelta
 import fitparse
+from zipfile import ZipFile
+import pathlib
 
 # ================================================================
 def min2minSek_longStr (minutes):
@@ -42,27 +45,42 @@ def sec2minSec_shStr (seconds):
 
 # ================================================================
 def m2km_0decStr (meters):
-    kmStr = str(round(meters / 1000, 0))
+    if meters == 0:
+        kmStr ='-'
+    else:
+        kmStr = str(round(meters / 1000, 0))
     return (kmStr)
 
 # ================================================================
 def m2km_1decStr (meters):
-    kmStr = str(round(meters / 1000, 1))
+    if meters == 0:
+        kmStr ='-'
+    else:
+        kmStr = str(round(meters / 1000, 1))
     return (kmStr)
 
 # ================================================================
 def m2km_2decStr (meters):
-    kmStr = str(round(meters / 1000, 2))
+    if meters == 0:
+        kmStr ='-'
+    else:
+        kmStr = str(round(meters / 1000, 2))
     return (kmStr)
 
 # ================================================================
 def mps2minpkm_Str (speed):
-    minpkmStr = sec2minSec_longStr(1/(speed / 1000))
+    if speed == 0 or speed == None:
+        minpkmStr = '-'
+    else:
+        minpkmStr = sec2minSec_longStr(1/(speed / 1000))
     return (minpkmStr)
 
 # ================================================================
 def mps2minp500m_Str (speed):
-    minp500mStr = sec2minSec_longStr(1/(speed / 1000)/2)
+    if speed == 0 or speed == None:
+        minp500mStr = '-'
+    else:
+        minp500mStr = sec2minSec_longStr(1/(speed / 1000)/2)
     return (minp500mStr)
 
 # ================================================================
@@ -72,12 +90,18 @@ def mps2kmph_0decStr (speed):
 
 # ================================================================
 def mps2kmph_1decStr (speed):
-    kmphStr = str(round(speed * 3600 / 1000, 1))
+    if speed == 0 or speed == None:
+        kmphStr = '-'
+    else:
+        kmphStr = str(round(speed * 3600 / 1000, 1))
     return (kmphStr)
 
 # ================================================================
 def mps2kmph_2decStr (speed):
-    kmphStr = str(round(speed * 3600 / 1000, 2))
+    if speed == 0 or speed == None:
+        kmphStr = '-'
+    else:
+        kmphStr = str(round(speed * 3600 / 1000, 2))
     return (kmphStr)
 
 # ================================================================
@@ -490,15 +514,15 @@ def calc_lapData_from_recordTable(recordTable, lapTable):
                     lapTable[lapIx]['lapDist'] = recordData['distance']
                 else:
                     lapTable[lapIx]['lapDist'] = recordData['distance'] - lapTable[lapIx - 1]['totDist']
-            if lapTable[lapIx]['totDist'] == None or lapTable[lapIx]['totDist'] == 0:
+            if lapTable[lapIx]['totDist'] in [0, None]:
                 lapTable[lapIx]['totDist'] = recordData['distance']
-            if lapTable[lapIx]['avgSpeed'] == None or lapTable[lapIx]['avgSpeed'] == 0:
+            if lapTable[lapIx]['avgSpeed'] in [0, None]:
                 lapTable[lapIx]['avgSpeed'] = lapTable[lapIx]['lapDist'] / lapTable[lapIx]['lapTime']
-            if lapTable[lapIx]['avgSpeed2'] == None or lapTable[lapIx]['avgSpeed2'] == 0:
+            if lapTable[lapIx]['avgSpeed2'] in [0, None]:
                 lapTable[lapIx]['avgSpeed2'] = speedLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
-            if lapTable[lapIx]['avgCad'] == None or lapTable[lapIx]['avgCad'] == 0:
+            if lapTable[lapIx]['avgCad'] in [0, None]:
                 lapTable[lapIx]['avgCad'] = cadLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
-            if lapTable[lapIx]['avgPower'] == None or lapTable[lapIx]['avgPower'] == 0:
+            if lapTable[lapIx]['avgPower'] in [0, None]:
                 lapTable[lapIx]['avgPower'] = powerLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
             lapTable[lapIx]['avgStrokeLen'] = CIQstrokeLengthLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
             lapTable[lapIx]['avgDragFactor'] = CIQdragfactorLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
@@ -568,8 +592,8 @@ def saveSpinBikeLapTable_to_txt():
 
     # Destination and Source data
     print('-----------')
-    print(str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
-    outLapTxt_file.write (str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
+    print(str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
+    outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
     print('Src: ' + fit_file_path)
@@ -592,15 +616,18 @@ def saveSpinBikeLapTable_to_txt():
             lapTxtLine += str(lapData['HRend'] - lapData['HRstart']) +  '->'
             lapTxtLine += str(lapData['maxHR']) + 'maxHR '
             lapTxtLine += sec2minSec_shStr(lapData['lapTime']) + 'min '
-            lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
-            lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
-            lapTxtLine += mps2kmph_1decStr(lapData['avgSpeed']) + 'km/h ' 
-            lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W' 
+            if lapData['avgCad'] != 0: lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
+            if lapData['avgSpeed'] != 0: lapTxtLine += mps2kmph_1decStr(lapData['avgSpeed']) + 'km/h ' 
+            if lapData['avgPower'] != 0: lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W ' 
+            if lapData['lapDist'] != 0: lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km'
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
             
     # Avg data for ACTIVE LAPS
-    avgLine = 'avgSpeed: ' + mps2kmph_1decStr(avgSpeedActive) + 'km/h, avgCad: ' + str(round(avgCadActive,1)) + 'rpm, avgPower: ' + str(round(avgPowerActive,1)) + 'W'
+    avgLine = ''
+    if lapData['avgCad'] != 0:avgLine += 'avgCad: ' + str(round(avgCadActive,1)) + 'rpm '
+    if lapData['avgSpeed'] != 0: avgLine += 'avgSpeed: ' + mps2kmph_1decStr(avgSpeedActive) + 'km/h '
+    if lapData['lapDist'] != 0: avgLine += 'avgPower: ' + str(round(avgPowerActive,1)) + 'W'
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
     
@@ -621,17 +648,20 @@ def saveSpinBikeLapTable_to_txt():
             lapTxtLine += str(lapData['HRend'] - lapData['HRstart']) + '->'
             lapTxtLine += str(lapData['HRend']) +  ' '
             lapTxtLine += sec2minSec_shStr(lapData['lapTime']) + 'min '
-            lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
-            lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
-            lapTxtLine += mps2kmph_1decStr(lapData['avgSpeed']) + 'km/h ' 
-            lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W' 
+            if lapData['avgCad'] != 0: lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
+            if lapData['avgSpeed'] != 0: lapTxtLine += mps2kmph_1decStr(lapData['avgSpeed']) + 'km/h ' 
+            if lapData['avgPower'] != 0: lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W ' 
+            if lapData['lapDist'] != 0: lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km'
             if (lapData['maxHR'] - lapData['HRstart']) != 0:
                 lapTxtLine += ' HRtop' + str(lapData['maxHR'] - lapData['HRstart'])
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
 
     # Avg data for REST LAPS
-    avgLine = 'avgSpeed: ' + mps2kmph_1decStr(avgSpeedRest) + 'km/h, avgCad: ' + str(round(avgCadRest,1)) + 'rpm, avgPower: ' + str(round(avgPowerRest,1)) + 'W'
+    avgLine = ''
+    if lapData['avgCad'] != 0: avgLine += 'avgCad: ' + str(round(avgCadRest,1)) + 'rpm '
+    if lapData['avgSpeed'] != 0: avgLine += 'avgSpeed: ' + mps2kmph_1decStr(avgSpeedRest) + 'km/h '
+    if lapData['avgPower'] != 0: avgLine += 'avgPower: ' + str(round(avgPowerRest,1)) + 'W'
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
    
@@ -647,8 +677,8 @@ def saveGymBikeLapTable_to_txt():
 
     # Destination and Source data
     print('-----------')
-    print(str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
-    outLapTxt_file.write (str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
+    print(str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
+    outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
     print('Src: ' + fit_file_path)
@@ -759,8 +789,8 @@ def saveCTLapTable_to_txt():
 
     # Destination and Source data
     print('-----------')
-    print(str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
-    outLapTxt_file.write (str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
+    print(str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
+    outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
     print('Src: ' + fit_file_path)
@@ -786,15 +816,18 @@ def saveCTLapTable_to_txt():
             lapTxtLine += str(lapData['HRend'] - lapData['HRstart']) +  '->'
             lapTxtLine += str(lapData['maxHR']) + 'maxHR '
             lapTxtLine += sec2minSec_shStr(lapData['lapTime']) + 'min '
-            lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
             lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
+            lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
             lapTxtLine += mps2minpkm_Str(lapData['avgSpeed']) + 'min/km ' 
             lapTxtLine += mps2kmph_1decStr(lapData['avgSpeed']) + 'km/h' 
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
             
     # Avg data for ACTIVE LAPS
-    avgLine = 'avgPace: ' + mps2minpkm_Str(avgSpeedActive) + 'min/km, avgSpeed: ' + mps2kmph_1decStr(avgSpeedActive) + 'km/h, avgCad: ' + str(round(avgCadActive,1)) + 'rpm'
+    avgLine = ''
+    avgLine += 'avgCad: ' + str(round(avgCadActive,1)) + 'rpm, '
+    avgLine += 'avgPace: ' + mps2minpkm_Str(avgSpeedActive) + 'min/km, '
+    avgLine += 'avgSpeed: ' + mps2kmph_1decStr(avgSpeedActive) + 'km/h'
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
     
@@ -816,8 +849,8 @@ def saveCTLapTable_to_txt():
             lapTxtLine += str(lapData['HRend'] - lapData['HRstart']) + '->'
             lapTxtLine += str(lapData['HRend']) +  ' '
             lapTxtLine += sec2minSec_shStr(lapData['lapTime']) + 'min '
-            lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
             lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
+            lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'rpm '
             lapTxtLine += mps2minpkm_Str(lapData['avgSpeed']) + 'min/km ' 
             lapTxtLine += mps2kmph_1decStr(lapData['avgSpeed']) + 'km/h' 
             if (lapData['maxHR'] - lapData['HRstart']) != 0:
@@ -826,7 +859,9 @@ def saveCTLapTable_to_txt():
             outLapTxt_file.write (lapTxtLine + '\n')
 
     # Avg data for REST LAPS
-    avgLine = 'avgPace: ' + mps2minpkm_Str(avgSpeedRest) + 'min/km, avgSpeed: ' + mps2kmph_1decStr(avgSpeedRest) + 'km/h, avgCad: ' + str(round(avgCadRest,1)) + 'rpm'
+    avgLine += 'avgCad: ' + str(round(avgCadRest,1)) + 'rpm, '
+    avgLine = 'avgPace: ' + mps2minpkm_Str(avgSpeedRest) + 'min/km, '
+    avgLine += 'avgSpeed: ' + mps2kmph_1decStr(avgSpeedRest) + 'km/h'
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
 
@@ -841,7 +876,7 @@ def saveCTLapTable_to_txt():
         lapTxtLine = ''
         lapTxtLine += str(lapData['level'])
         lapTxtLine += ' '
-        lapTxtLine += str(lapData['totDist'])
+        lapTxtLine += str(int(lapData['totDist']/10))
         outLapTxt_file.write (lapTxtLine + '\n')
 
     # LAP DISTANCES to be used in FFRT when calculating indoor activities like 'indoor bike' or elliptical/cross trainer
@@ -879,8 +914,8 @@ def saveSkiErgLapTable_to_txt():
 
     # Destination and Source data
     print('-----------')
-    print(str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
-    outLapTxt_file.write (str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
+    print(str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
+    outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outnewDistTxt_file_path +'\n')
     print('Dest: ' + outnewDistTxt_file_path)
@@ -909,14 +944,17 @@ def saveSkiErgLapTable_to_txt():
             lapTxtLine += str(lapData['maxHR']) + 'maxHR '
             lapTxtLine += sec2minSec_shStr(lapData['lapTime']) + 'min '
             lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'spm '
-            lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
             lapTxtLine += mps2minp500m_Str(lapData['lapDist']/lapData['lapTime']) + 'min/500m ' 
-            lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W' 
+            lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W ' 
+            lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
             
     # Avg data for ACTIVE LAPS
-    avgLine = 'avgSpeed: ' + mps2minp500m_Str(avgSpeedActive) + 'min/500m, avgCad: ' + str(round(avgCadActive,1)) + 'spm, avgPower: ' + str(round(avgPowerActive,1)) + 'W'
+    avgLine = ''
+    avgLine += 'avgCad: ' + str(round(avgCadActive,1)) + 'spm '
+    avgLine += 'avgPace: ' + mps2minp500m_Str(avgSpeedActive) + 'min/500m '
+    avgLine += 'avgPower: ' + str(round(avgPowerActive,1)) + 'W '
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
     
@@ -939,16 +977,19 @@ def saveSkiErgLapTable_to_txt():
             lapTxtLine += str(lapData['HRend']) +  ' '
             lapTxtLine += sec2minSec_shStr(lapData['lapTime']) + 'min '
             lapTxtLine += str(int(round(lapData['avgCad'],0))) + 'spm '
-            lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
             lapTxtLine += mps2minp500m_Str(lapData['avgSpeed']) + 'min/500m ' 
-            lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W' 
+            lapTxtLine += str(int(round(lapData['avgPower'],1))) + 'W ' 
+            lapTxtLine += m2km_1decStr(lapData['lapDist']) + 'km '
             if (lapData['maxHR'] - lapData['HRstart']) != 0:
                 lapTxtLine += ' HRtop' + str(lapData['maxHR'] - lapData['HRstart'])
             print (lapTxtLine)
             outLapTxt_file.write (lapTxtLine + '\n')
 
     # Avg data for REST LAPS
-    avgLine = 'avgSpeed: ' + mps2minp500m_Str(avgSpeedRest) + 'min/500m, avgCad: ' + str(round(avgCadRest,1)) + 'spm, avgPower: ' + str(round(avgPowerRest,1)) + 'W'
+    avgLine = ''
+    avgLine += 'avgCad: ' + str(round(avgCadRest,1)) + 'spm '
+    avgLine += 'avgPace: ' + mps2minp500m_Str(avgSpeedRest) + 'min/500m '
+    avgLine += 'avgPower: ' + str(round(avgPowerRest,1)) + 'W '
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
 
@@ -980,8 +1021,8 @@ def saveRunLapTable_to_txt():
 
     # Destination and Source data
     print('-----------')
-    print(str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
-    outLapTxt_file.write (str(timeFirstRecord) + ', ' + ActivityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
+    print(str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime))
+    outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTimeSumLapTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
     print('Src: ' + fit_file_path)
@@ -1054,16 +1095,29 @@ def saveRunLapTable_to_txt():
 # ================================================================
 # ================================================================
 
-#ActivityType = 'spinBike'
-#ActivityType = 'gymBike'
-#ActivityType = 'CT'
-#ActivityType = 'skiErg'
-ActivityType = 'run'
+noArgs = len(sys.argv)
+print(noArgs, sys.argv)
+if noArgs <= 1:
+    #activityType = 'spinbike'
+    #activityType = 'gymbike'
+    #activityType = 'ct'
+    activityType = 'skierg'
+    #activityType = 'run'
+else:
+    activityType = sys.argv[1]
+
+activityType = activityType.lower()
+if activityType in ['spinbike','gymbike','ct','skierg','run']:
+    print('Using activityType: ' + activityType)
+else:
+    print('---------------Wrong activityType!')
+    exit()
+
 test = 0                # 0 if NO TEST
 startWithWktStep = 'WarmupThenActive'    # If no workout steps in file, then start with this, can be "WarmupThenActive" OR "WarmupAndRest"
 
-#device = 'pc'
-device = 'pc1drv'
+device = 'pc'
+#device = 'pc1drv'
 #device = 'm'
 
 if device == 'm':
@@ -1077,25 +1131,42 @@ else:
     pathDL = 'OneDrive/Dokument Peter OneDrive/Träning/ActivityFiles/Peter activities/'
 
 # File path to your FIT txtFile
-if test == 0:
-    fit_file_path = pathPrefix + pathDL + '2024-08-23-16-40-55-run-trail-5.9km-01-07-19tim-Epix Pro gen 2.fit'
+if noArgs > 2:
+    fit_file_path = pathPrefix + pathDL + sys.argv[2]
+elif test == 0:
+    fit_file_path = pathPrefix + pathDL + '17090763560.zip'
 else:
-    if ActivityType == 'spinBike':
-        fit_file_path = pathPrefix + pathDL + 'TESTfiles/testSpinBike.fit'
-    elif ActivityType == 'gymBike':
-        fit_file_path = pathPrefix + pathDL + 'TESTfiles/testGymBike.fit'
-    elif ActivityType == 'skiErg':
-        fit_file_path = pathPrefix + pathDL + 'TESTfiles/testSkiErgWatchFile.fit'
-    elif ActivityType == 'run':
-        fit_file_path = pathPrefix + pathDL + 'TESTfiles/testRun.fit'
-    
+    if activityType == 'spinbike':
+        fit_file_path = pathPrefix + pathDL + 'TESTfiles/2024-09-26-14-27-04-spinbike-18.4km-40.04min-analyzed.fit'
+    elif activityType == 'gymbike':
+        fit_file_path = pathPrefix + pathDL + 'TESTfiles/2024-09-14-07-46-48-gymbike-31.2km-60.43min-analyzed.fit'
+    elif activityType == 'skierg':
+        fit_file_path = pathPrefix + pathDL + 'TESTfiles/2024-09-30-14-48-09-skierg-11.0km-61.05min-analyzed.fit'
+    elif activityType == 'run':
+        fit_file_path = pathPrefix + pathDL + 'TESTfiles/2024-08-02-15-27-43-run-5.4km-61.23min-analyzed.fit'
+
+fileName = pathlib.Path(fit_file_path).stem
+ext = pathlib.Path(fit_file_path).suffix
+if ext =='.zip':
+    zip_file_path = fit_file_path
+    file_exist = os.path.isfile(zip_file_path)
+    if not file_exist:
+        print('---------------- ZIP File does not exist!')
+        exit()
+    zip = ZipFile(zip_file_path)
+    zip.extractall(pathPrefix + pathDL)
+    zip.close()
+    fit_file_path = pathPrefix + pathDL + fileName + '_ACTIVITY.fit'
+
 file_exist = os.path.isfile(fit_file_path)
 if not file_exist:
     print('---------------- Fit File does not exist!')
     exit()
 
-if ActivityType == 'skiErg':
-    if test == 0:
+if activityType == 'skierg':
+    if noArgs > 3:
+        C2fit_file_path = pathPrefix + pathDL + sys.argv[3]
+    elif test == 0:
         C2fit_file_path = pathPrefix + pathDL + '240927-concept2-logbook-workout-92357194.fit'
     else:
         C2fit_file_path = pathPrefix + pathDL + 'TESTfiles/testSkiErgConcept2File.fit'
@@ -1104,7 +1175,7 @@ if ActivityType == 'skiErg':
         print('---------------- C2Fit txtFile does not exist!')
         exit()
 
-if ActivityType == 'gymBike' or ActivityType == 'CT':
+if activityType == 'gymbike' or activityType == 'ct':
     if test == 0:
         lap_txtFile_path = pathPrefix + 'documents/indoorBikeLapsLatest.txt'
     else:
@@ -1117,57 +1188,71 @@ if ActivityType == 'gymBike' or ActivityType == 'CT':
 
 # ================================================================
 
-if ActivityType == 'gymBike' or ActivityType == 'CT':
+if activityType == 'gymbike' or activityType == 'ct':
     lapFromTxtTbl, lapCountTxt = extract_lap_data_from_txt(lap_txtFile_path)
 
-if ActivityType == 'skiErg':
+if activityType == 'skierg':
     C2recordTable, C2timeFirstRecord, C2timeLastRecord = extract_record_data_from_C2fit(C2fit_file_path)
 
 recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fit_file_path)
 lapTable, lapCountFit = extract_lap_data_from_fit(fit_file_path, startWithWktStep)
 
-if ActivityType == 'gymBike' or ActivityType == 'CT':
+if activityType == 'gymbike' or activityType == 'ct':
     print('lapCount in TXT and FIT files: ', lapCountTxt, lapCountFit)
     if lapCountTxt != lapCountFit: exit()
 
-if ActivityType == 'skiErg':
+if activityType == 'skierg':
     recordTable = merge_C2records_with_recordTable(recordTable, C2recordTable)
 
 lapTable, totTimeSumLapTime = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
 
-if ActivityType == 'gymBike' or ActivityType == 'CT':
+if activityType == 'gymbike' or activityType == 'ct':
     lapTable, totDist = merge_lapData_from_txt(lapTable, lapFromTxtTbl)
 
 lapTable, recordTable, totDist = calc_lapData_from_recordTable(recordTable, lapTable)
 avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
-if ActivityType == 'skiErg':
+if activityType == 'skierg':
     print('date from C2 and watch file: ', C2timeFirstRecord, timeFirstRecord)
     if C2timeFirstRecord.date() != timeFirstRecord.date(): exit()
 
+out_baseFileName = str(timeFirstRecord).replace(':','-').replace(' ','-') + '-' + activityType + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTimeSumLapTime).replace(':','.')
+
 if test == 0:
     # File path to your destination text txtFile
-    outLapTxt_file_path = pathPrefix + pathDL + str(timeFirstRecord).replace(':','-').replace(' ','-') + '-' + ActivityType + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTimeSumLapTime).replace(':','.') + 'min-LapTables.txt'
+    outLapTxt_file_path = pathPrefix + pathDL + out_baseFileName + 'min-LapTables.txt'
     # File path to your destination text txtFile
-    outnewDistTxt_file_path = pathPrefix + pathDL + str(timeFirstRecord).replace(':','-').replace(' ','-') + '-' + ActivityType + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTimeSumLapTime).replace(':','.') + 'min-newDistCadPower.csv'
+    outnewDistTxt_file_path = pathPrefix + pathDL + out_baseFileName + 'min-newDistCadPower.csv'
 else:
     # File path to your destination text txtFile
-    outLapTxt_file_path = pathPrefix + pathDL + 'TESTfiles/TEST' + str(timeFirstRecord).replace(':','-').replace(' ','-') + '-' + ActivityType + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTimeSumLapTime).replace(':','.') + 'min-LapTables.txt'
+    outLapTxt_file_path = pathPrefix + pathDL + 'TESTfiles/' + out_baseFileName + 'min-LapTables.txt'
     # File path to your destination text txtFile
-    outnewDistTxt_file_path = pathPrefix + pathDL + 'TESTfiles/TEST' + str(timeFirstRecord).replace(':','-').replace(' ','-') + '-' + ActivityType + '-' + m2km_1decStr(totDist) + 'km-' + sec2minSec_shStr(totTimeSumLapTime).replace(':','.') + 'min-newDistCadPower.csv'
+    outnewDistTxt_file_path = pathPrefix + pathDL + 'TESTfiles/' + out_baseFileName + 'min-newDistCadPower.csv'
 
 if test != 0:
     print('================ TEST =================')
-if ActivityType == 'spinBike':
+if activityType == 'spinbike':
     saveSpinBikeLapTable_to_txt()
-if ActivityType == 'gymBike':
+if activityType == 'gymbike':
     saveGymBikeLapTable_to_txt()
-if ActivityType == 'CT':
+if activityType == 'ct':
     saveCTLapTable_to_txt()
-if ActivityType == 'skiErg':
+if activityType == 'skierg':
     saveSkiErgLapTable_to_txt()
-if ActivityType == 'run':
+if activityType == 'run':
     saveRunLapTable_to_txt()
+
+if test == 0:
+    newFitFileName = pathPrefix + pathDL + out_baseFileName + 'min-analyzed.fit'
+else:
+    newFitFileName = pathPrefix + pathDL + 'TESTfiles/' + out_baseFileName + 'min-analyzed.fit'
+
+if fit_file_path != newFitFileName:
+    if os.path.exists(newFitFileName):
+        os.remove(newFitFileName)
+    os.rename(fit_file_path, newFitFileName)
+    if ext == '.zip':
+        os.remove(zip_file_path)
 
 print('-----THE END', datetime.now())
 if test != 0:
