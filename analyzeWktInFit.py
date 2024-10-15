@@ -213,17 +213,26 @@ def extract_session_data_from_fit(fit_file_path):
             #if activityType == 'info': print(fit_record_data.name, fit_record_data.value)
         recordTable.append(recordData)
         recordIx += 1
-
-    if activityType == 'spinbike': actName = 'SpinBike'
+    actNameOrg = actName
     actName = actName.replace(' (bike)','')
-    actName = actName.replace('Cykel inne','GymBike')
+    if actName == 'Cykel inne' and totDist > 0:
+        actName = actName.replace('Cykel inne','SpinBike')
+    else:
+        actName = actName.replace('Cykel inne','GymBike')
+
+    actName = actName.replace('spinbike','SBike')
     actName = actName.replace('SpinBike','SBike')
     actName = actName.replace('Spin','SpinBike')
     actName = actName.replace('SBike','SpinBike')
+
     actName = actName.replace('Elliptical','CT')
+    actName = actName.replace('Ellipt','Elliptical')
+    actName = actName.replace('ellipt','Elliptical')
+    actName = actName.replace('CT','Elliptical')
+    actName = actName.replace('ct','Elliptical')
     if actName == '':
         if subSport == 'indoor_cycling': actName = 'GymSpinBike'
-        elif subSport == 'elliptical': actName = 'CT'
+        elif subSport == 'elliptical': actName = 'Elliptical'
         elif subSport in ['indoor_rowing', 'indoor_skiing']: actName = 'SkiErg'
         else: actName = sport + '_' + subSport
 
@@ -234,7 +243,7 @@ def extract_session_data_from_fit(fit_file_path):
     infoLine = '\nACTIVITY FILE INFO before\n---------------\n'
     infoLine += 'StartTime: ' + str(startTime) + '\n'
     infoLine += 'Prod: ' + product + ' v' + str(SWver) + ', ProdNo: ' + str(garminProd) + ', Manuf: ' + manufacturer + '\n'
-    infoLine += 'WatchActivity: ' + actName + ', Sport: ' + sport + ', subSport: ' + subSport + '\n'
+    infoLine += 'WatchActivity: ' + actNameOrg + '->' + actName + ', Sport: ' + sport + ', subSport: ' + subSport + '\n'
     infoLine += 'WktName: ' + wktName + ', no of Laps: ' + str(noLaps) + '\n'
     infoLine += sec2minSec_longStr(totTime) + 'min, '
     infoLine += m2km_1decStr(totDist) + 'km, ' + mps2kmph_1decStr(avgSpeed) + 'km/h\n'
@@ -1148,20 +1157,6 @@ def saveGymBikeLapTable_to_txt():
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
 
-    # LAP DISTANCES to be used if script need to be run again
-    outLapTxt_file.write ('-----------\n')
-    outLapTxt_file.write ('Original lap data from text file written during indoor activity\n')
-    outLapTxt_file.write ('-----------\n')
-
-    lapTxtLine = 'level totDist'
-    outLapTxt_file.write (lapTxtLine + '\n')
-    for lapData in lapTable:
-        lapTxtLine = ''
-        lapTxtLine += str(lapData['level'])
-        lapTxtLine += ' '
-        lapTxtLine += str(int(lapData['totDist']/10))
-        outLapTxt_file.write (lapTxtLine + '\n')
-
     saveShowLapDistances(outLapTxt_file, lapTable, totDist)
 
     return
@@ -1254,22 +1249,8 @@ def saveCTLapTable_to_txt():
     print (avgLine)
     outLapTxt_file.write (avgLine + '\n')
 
-    # LAP DISTANCES to be used if script need to be run again
-    outLapTxt_file.write ('-----------\n')
-    outLapTxt_file.write ('Original lap data from text file written during indoor activity\n')
-    outLapTxt_file.write ('-----------\n')
-
-    lapTxtLine = 'level totDist'
-    outLapTxt_file.write (lapTxtLine + '\n')
-    for lapData in lapTable:
-        lapTxtLine = ''
-        lapTxtLine += str(lapData['level'])
-        lapTxtLine += ' '
-        lapTxtLine += str(int(lapData['totDist']/10))
-        outLapTxt_file.write (lapTxtLine + '\n')
-
     saveShowLapDistances(outLapTxt_file, lapTable, totDist)
-    
+
     return
 
 # ================================================================
@@ -1471,7 +1452,7 @@ def createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, prod
     out_baseFileName = ''
     out_baseFileName += str(timeFirstRecord).replace(':','-').replace(' ','-')
     out_baseFileName += '-' + actName
-    out_baseFileName += '-' + m2km_1decStr(totDist) + 'km'
+    if not totDist in [0, '', None]: out_baseFileName += '-' + m2km_1decStr(totDist) + 'km'
     out_baseFileName += '-' + sec2minSec_shStr(totTime).replace(':','.') + 'min'
     if not wktName == '': out_baseFileName += '-' + wktName
     if not product == '': out_baseFileName += '-' + product
@@ -1662,7 +1643,7 @@ if not doRename:
         if actName.lower().find('run') >= 0: activityType = 'run'
 
 # CHECK if activity type is CORRECT
-if activityType in ['spinbike','gymbike','ct','skierg','run','rename']:
+if activityType in ['spinbike','gymbike','ct','elliptical','skierg','run','rename']:
     print('Using activityType: ' + activityType)
 else:
     print('---------------Wrong activityType! ', activityType, actName)
@@ -1811,12 +1792,23 @@ if activityType == 'skierg':
 # ================================================================
 # GYMBIKE & CT
 # ================================================================
-if activityType in ['gymbike', 'ct']:
+if activityType in ['gymbike', 'ct', 'elliptical']:
 
     # Assign LAP TEXT file if NOT test
     # ================================================================
+#    product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName = extract_session_data_from_fit(fit_file_path)
+
     if not test:
-        lap_txtFile_path = pathPrefix + 'documents/indoorBikeLapsLatest.txt'
+        if argsCount >= 4:
+            if sys.argv[3] == 'x':
+                lap_txtFile_path = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
+                lap_txtFile_path = pathPrefix + pathDL + lap_txtFile_path + '-LevelTotDist.txt'
+            else:
+                lap_txtFile_path = sys.argv[3]
+                lap_txtFile_path = pathPrefix + pathDL + lap_txtFile_path
+        else:
+            lap_txtFile_path = pathPrefix + 'documents/indoorBikeLapsLatest.txt'
+
         file_exist = os.path.isfile(lap_txtFile_path)
         if not file_exist:
             print('---------------- Lap txtFile does not exist! ', lap_txtFile_path)
@@ -1847,6 +1839,14 @@ if activityType in ['gymbike', 'ct']:
 
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
+    # LAP DISTANCES to be used if script need to be run again
+    outLapTxt_file = open(lap_txtFile_path, 'w')
+    for lapData in lapTable:
+        lapTxtLine = ''
+        lapTxtLine += str(lapData['level'])
+        lapTxtLine += ' '
+        lapTxtLine += str(int(lapData['totDist']/10))
+        outLapTxt_file.write (lapTxtLine + '\n')
 
     if test:
         print('================ TEST =================')
