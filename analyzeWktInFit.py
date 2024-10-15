@@ -10,6 +10,9 @@ import filecmp
 def min2minSek_longStr (minutes):
     min = int(minutes)
     sec = int(round((minutes - min) * 60,0))
+    if sec == 60:
+        min += 1
+        sec = 0
     min_str = str(min) + ':'
     if sec < 10: min_str += '0' + str(sec)
     else: min_str += str(sec)
@@ -19,6 +22,9 @@ def min2minSek_longStr (minutes):
 def min2minSek_shStr (minutes):
     min = int(minutes)
     sec = int(round((minutes - min) * 60,0))
+    if sec == 60:
+        min += 1
+        sec = 0
     min_str = str(min)
     if sec == 0: min_str += ''
     elif sec < 10: min_str += ':0' + str(sec)
@@ -29,6 +35,9 @@ def min2minSek_shStr (minutes):
 def sec2minSec_longStr (seconds):
     min = int(seconds / 60)
     sec = int(round((seconds / 60 - min) * 60,0))
+    if sec == 60:
+        min += 1
+        sec = 0
     min_str = str(min)
     if sec < 10: min_str += ':0' + str(sec)
     else: min_str += ':' + str(sec)
@@ -38,6 +47,9 @@ def sec2minSec_longStr (seconds):
 def sec2minSec_shStr (seconds):
     min = int(seconds / 60)
     sec = int(round((seconds / 60 - min) * 60,0))
+    if sec == 60:
+        min += 1
+        sec = 0
     min_str = str(min)
     if sec == 0: min_str += ''
     elif sec < 10: min_str += ':0' + str(sec)
@@ -109,11 +121,20 @@ def mps2kmph_2decStr (speed):
     return (kmphStr)
 
 # ================================================================
+def mps2kmph_alldecStr (speed):
+    if speed in [0, None]:
+        kmphStr = '0'
+    else:
+        kmphStr = str(speed * 3600 / 1000)
+    return (kmphStr)
+
+# ================================================================
 # ================================================================
 # ================================================================
 
 def extract_session_data_from_fit(fit_file_path):
-    print('--extract_SESSION_data_from_fit', datetime.now())
+    if not doRename:
+        print('--extract_SESSION_data_from_fit', datetime.now())
     
     # Parse the FIT txtFile
     fitfile = fitparse.FitFile(fit_file_path)
@@ -143,8 +164,9 @@ def extract_session_data_from_fit(fit_file_path):
     
     if garminProd in ['', 0, None]: 
         if not manufacturer in ['', 0, None]: product = manufacturer
-    elif garminProd == 4130: product = 'HRMpro'
     elif garminProd == 4314: product = 'epix2pro'
+    elif garminProd == 4257: product = 'fr265'
+    elif garminProd == 4130: product = 'HRMpro'
     else: product = ''
 
     recordTable = []
@@ -162,13 +184,15 @@ def extract_session_data_from_fit(fit_file_path):
         # Extract data fields
 
         for fit_record_data in fit_record:
-            if fit_record_data.name == 'Distance': totDist = fit_record_data.value
-            elif fit_record_data.name == 'Speed': avgSpeed = fit_record_data.value
+            if fit_record_data.name == 'Distance' and totDist in [0, None]: totDist = fit_record_data.value
+            elif fit_record_data.name == 'Speed' and avgSpeed in [0, None]: avgSpeed = fit_record_data.value
+            elif fit_record_data.name == 'enhanced_avg_speed' and avgSpeed in [0, None]: avgSpeed = fit_record_data.value
             elif fit_record_data.name == 'num_laps': noLaps = fit_record_data.value
             elif fit_record_data.name == 'sport': sport = fit_record_data.value
-            elif fit_record_data.name == 'start_time': startTime = fit_record_data.value
+            elif fit_record_data.name == 'start_time': startTime = fit_record_data.value + timedelta(hours=TZhours)
             elif fit_record_data.name == 'sub_sport': subSport = fit_record_data.value
             elif fit_record_data.name == 'total_timer_time': totTime = fit_record_data.value
+            elif fit_record_data.name == 'total_distance' and totDist in [0, None]: totDist = fit_record_data.value
             elif fit_record_data.name == 'unknown_110': actName = fit_record_data.value
             #if recordIx <10: print(fit_record_data)
             #if recordIx <10: print(fit_record_data.name, fit_record_data.value)
@@ -186,10 +210,10 @@ def extract_session_data_from_fit(fit_file_path):
         for fit_record_data in fit_record:
             if fit_record_data.name == 'wkt_name': wktName = fit_record_data.value
             #if recordIx <10: print(fit_record_data)
-            #if recordIx <10: print(fit_record_data.name, fit_record_data.value)
+            #if activityType == 'info': print(fit_record_data.name, fit_record_data.value)
         recordTable.append(recordData)
         recordIx += 1
-    
+
     if activityType == 'spinbike': actName = 'SpinBike'
     actName = actName.replace(' (bike)','')
     actName = actName.replace('Cykel inne','GymBike')
@@ -197,11 +221,17 @@ def extract_session_data_from_fit(fit_file_path):
     actName = actName.replace('Spin','SpinBike')
     actName = actName.replace('SBike','SpinBike')
     actName = actName.replace('Elliptical','CT')
+    if actName == '':
+        if subSport == 'indoor_cycling': actName = 'GymSpinBike'
+        elif subSport == 'elliptical': actName = 'CT'
+        elif subSport in ['indoor_rowing', 'indoor_skiing']: actName = 'SkiErg'
+        else: actName = sport + '_' + subSport
+
     #wktName = wktName.replace('×','x').replace('(','_').replace(')','_').replace(' ','_')
     actName = actName.replace(' ','_')
     wktName = wktName.replace(' ','_')
     
-    infoLine = 'ACTIVITY FILE INFO before\n---------------\n'
+    infoLine = '\nACTIVITY FILE INFO before\n---------------\n'
     infoLine += 'StartTime: ' + str(startTime) + '\n'
     infoLine += 'Prod: ' + product + ' v' + str(SWver) + ', ProdNo: ' + str(garminProd) + ', Manuf: ' + manufacturer + '\n'
     infoLine += 'WatchActivity: ' + actName + ', Sport: ' + sport + ', subSport: ' + subSport + '\n'
@@ -209,8 +239,139 @@ def extract_session_data_from_fit(fit_file_path):
     infoLine += sec2minSec_longStr(totTime) + 'min, '
     infoLine += m2km_1decStr(totDist) + 'km, ' + mps2kmph_1decStr(avgSpeed) + 'km/h\n'
     infoLine += '----------------'
-    print(infoLine)
-    
+    print(infoLine)  
+
+    if activityType == 'info':
+
+        print('\nLAPS\n-----------')
+        lapTable = []
+        # Iterate over all messages of type "lap"
+        LapIx = 0
+        for lap in fitfile.get_messages('lap'):
+            #if LapIx <10: print('\n',lap)
+            lapData = {
+                'lapNo': None,
+                'timeStart': None,
+                'timeEnd': None,
+                'recordIxStart': None,
+                'recordIxEnd': None,
+                'wktStepType': None,
+                'lapTime': None,
+                'avgCad': None,
+                'maxCad': None,
+                'avgPower': None,
+                'maxPower': None,
+                'avgHR': None,
+                'maxHR': None,
+                'HRstart': None,
+                'HRend': None,
+                'totDist': None,
+                'lapDist': None,
+                'avgSpeed': None,       # Native avgSpeed data or Calculated based on dist/time
+                'avgSpeed2': None,      # Calculated based on avg of all speed record data
+                'level': None,
+                'stepLen': None,
+                'avgStrokeLen': None,
+                'avgDragFactor': None,
+                'wktStepIx': None
+                }
+            for lap_data_field in lap:
+                if lap_data_field.name == 'avg_cadence': lapData['avgCad'] = lap_data_field.value
+                elif lap_data_field.name == 'avg_heart_rate': lapData['avgHR'] = lap_data_field.value
+                elif lap_data_field.name == 'avg_power': lapData['avgPower'] = lap_data_field.value
+                elif lap_data_field.name == 'enhanced_avg_speed': lapData['avgSpeed'] = lap_data_field.value
+                elif lap_data_field.name == 'enhanced_max_speed': lapData['maxSpeed'] = lap_data_field.value
+                elif lap_data_field.name == 'intensity': lapData['wktStepType'] = lap_data_field.value
+                elif lap_data_field.name == 'max_cadence': lapData['maxCad'] = lap_data_field.value
+                elif lap_data_field.name == 'max_heart_rate': lapData['maxHR'] = lap_data_field.value
+                elif lap_data_field.name == 'max_power': lapData['maxPower'] = lap_data_field.value
+                elif lap_data_field.name == 'message_index': lapData['lapNo'] = lap_data_field.value + 1
+                elif lap_data_field.name == 'start_time': lapData['timeStart'] = lap_data_field.value + timedelta(hours=TZhours)
+                elif lap_data_field.name == 'total_timer_time': lapData['lapTime'] = int(round(lap_data_field.value,0))
+                elif lap_data_field.name == 'total_distance': lapData['lapDist'] = lap_data_field.value
+                elif lap_data_field.name == 'wkt_step_index': lapData['wktStepIx'] = lap_data_field.value
+                #if LapIx <10: print (LapIx, lap_data_field.name, lap_data_field.value)
+            #print('---------------wktStep:',LapIx, lapData['wktStepType'])
+            if lapData['wktStepType'] == 4: lapData['wktStepType'] = 'recover'
+            if lapData['wktStepType'] == 5: lapData['wktStepType'] = 'active' # according to SDK, 5=interval
+            LapIx += 1
+            #print('start:', lapData['timeStart'])
+            lapTable.append(lapData)
+
+            printLine = ''
+            printLine += str(lapData['lapNo'])
+            printLine += ', wktStepType: '
+            printLine += str(lapData['wktStepType'])
+            printLine += ', wktStepIx: '
+            printLine += str(lapData['wktStepIx'])
+            print(printLine)
+
+        recordTable = []
+        recordIx = 0
+
+        print('\nWORKOUT STEPS\n-----------')
+        for fit_record in fitfile.get_messages('workout_step'):
+            if recordIx <10: print('\n',fit_record)
+            # Extract data fields
+            recordData = {
+                'targetHRhigh': None,
+                'targetHRlow': None,
+                'gotoStep': None,
+                'durTime': None,
+                'durType': None,
+                'stepType': None,
+                'stepIx': None,
+                'notes': None,
+                'repeatCount': None,
+                'target_type': None
+                }
+            for fit_record_data in fit_record:
+                if fit_record_data.name == 'custom_target_heart_rate_high': recordData['targetHRhigh'] = fit_record_data.value
+                if fit_record_data.name == 'custom_target_heart_rate_low': recordData['targetHRlow'] = fit_record_data.value
+                if fit_record_data.name == 'duration_step': recordData['gotoStep'] = fit_record_data.value
+                if fit_record_data.name == 'duration_time': recordData['durTime'] = fit_record_data.value
+                if fit_record_data.name == 'duration_type': recordData['durType'] = fit_record_data.value
+                if fit_record_data.name == 'intensity': recordData['stepType'] = fit_record_data.value
+                if fit_record_data.name == 'message_index': recordData['stepIx'] = fit_record_data.value
+                if fit_record_data.name == 'notes': recordData['notes'] = fit_record_data.value
+                if fit_record_data.name == 'repeat_steps': recordData['repeatCount'] = fit_record_data.value
+                if fit_record_data.name == 'target_type': recordData['targetType'] = fit_record_data.value
+                #if recordIx <10: print(fit_record_data)
+                if recordIx < 10: print(fit_record_data.name, fit_record_data.value)
+            if recordData['stepType'] == 4: recordData['stepType'] = 'recover'
+            if recordData['stepType'] == 5: recordData['stepType'] = 'active' # according to SDK, 5=interval
+            recordTable.append(recordData)
+            recordIx += 1
+            
+            printLine = ''
+            printLine += str(recordData['stepIx'])
+            if recordData['durType'] == 'repeat_until_steps_cmplt':
+                printLine += 'x --> goto step '
+                printLine += str(recordData['gotoStep'])
+                printLine += ', '
+                printLine += str(recordData['repeatCount'])
+                printLine += 'x'
+            else:
+                if recordData['stepType'] != None:
+                    printLine += ', '
+                    printLine += str(recordData['stepType'])
+                printLine += ', '
+                printLine += str(recordData['durType'])
+                if recordData['durTime'] != None:
+                    printLine += ', '
+                    printLine += str(int(recordData['durTime']))
+                    printLine += 'sek'
+                if recordData['targetType'] != None:
+                    printLine += ', target: '
+                    printLine += str(recordData['targetType'])
+                if recordData['targetHRlow'] != None:
+                    printLine += ', '
+                    printLine += str(recordData['targetHRlow'])
+                if recordData['targetHRhigh'] != None:
+                    printLine += '->'
+                    printLine += str(recordData['targetHRhigh'])
+
+            print(printLine)
     
     return product, SWver, totDist, avgSpeed, noLaps, sport, startTime, subSport, totTime, actName, wktName
 
@@ -272,7 +433,7 @@ def extract_record_data_from_C2fit(fit_file_path):
         }
         for fit_record_data in fit_record:
             #if (recordIx / 300) == (int(recordIx/300)): print (fit_record_data.name, fit_record_data.value)
-            if fit_record_data.name == 'timestamp': recordData['timestamp'] = fit_record_data.value
+            if fit_record_data.name == 'timestamp': recordData['timestamp'] = fit_record_data.value + timedelta(hours=TZhours)
             elif fit_record_data.name == 'heart_rate': recordData['HR'] = fit_record_data.value
             elif fit_record_data.name == 'distance': recordData['distance'] = fit_record_data.value
             elif fit_record_data.name == 'cadence': recordData['cadence'] = fit_record_data.value
@@ -348,20 +509,18 @@ def extract_record_data_from_fit(fit_file_path):
             'lapNo': None
         }
         for fit_record_data in fit_record:
-            if fit_record_data.name == 'timestamp': recordData['timestamp'] = fit_record_data.value
+            if fit_record_data.name == 'cadence': recordData['cadence'] = fit_record_data.value
+            elif fit_record_data.name == 'Distance' and recordData['distance'] in [0, None]: recordData['distance'] = fit_record_data.value                                 # distance from C2 SkiErg CIQ distance
+            elif fit_record_data.name == 'distance' and recordData['distance'] in [0, None]: recordData['distance'] = fit_record_data.value         # native distance
+            elif fit_record_data.name == 'DragFactor': recordData['CIQdragfactor'] = fit_record_data.value
+            elif fit_record_data.name == 'enhanced_speed' and  recordData['speed'] in [0, None]: recordData['speed'] = fit_record_data.value      # native Speed
             elif fit_record_data.name == 'heart_rate': recordData['HR'] = fit_record_data.value
             elif fit_record_data.name == 'Level': recordData['CIQlevel'] = fit_record_data.value
-            elif fit_record_data.name == 'Training_session': recordData['CIQtrainSess'] = fit_record_data.value
-            elif fit_record_data.name == 'Distance': recordData['distance'] = fit_record_data.value         # distance from C2 SkiErg CIQ distance
-            elif fit_record_data.name == 'distance': 
-                if recordData['distance'] == 0 or recordData['distance'] == None: recordData['distance'] = fit_record_data.value         # native distance
-            elif fit_record_data.name == 'Speed': recordData['speed'] = fit_record_data.value               # speed from C2 SkiErg CIQ speed
-            elif fit_record_data.name == 'enhanced_speed': 
-                if recordData['speed'] == 0 or recordData['speed'] == None: recordData['speed'] = fit_record_data.value      # native Speed
-            elif fit_record_data.name == 'cadence': recordData['cadence'] = fit_record_data.value
             elif fit_record_data.name == 'power': recordData['power'] = fit_record_data.value
+            elif fit_record_data.name == 'Speed' and  recordData['speed'] in [0, None]: recordData['speed'] = fit_record_data.value                                       # speed from C2 SkiErg CIQ speed
             elif fit_record_data.name == 'StrokeLength': recordData['CIQstrokeLen'] = fit_record_data.value
-            elif fit_record_data.name == 'DragFactor': recordData['CIQdragfactor'] = fit_record_data.value
+            elif fit_record_data.name == 'timestamp': recordData['timestamp'] = fit_record_data.value + timedelta(hours=TZhours)
+            elif fit_record_data.name == 'Training_session': recordData['CIQtrainSess'] = fit_record_data.value
             #print(fit_record_data)
             #if recordIx <10: print(fit_record_data.name, fit_record_data.value)
         #if recordIx <10: print(recordData['distance'])
@@ -437,13 +596,13 @@ def extract_lap_data_from_fit(fit_file_path, startWithWktStep):
     # Iterate over all messages of type "lap"
     LapIx = 0
     for lap in fitfile.get_messages('lap'):
-        #print('\n',lap)
+        #if LapIx <10: print('\n',lap)
         lapData = {
             'lapNo': None,
             'timeStart': None,
             'timeEnd': None,
-            'recordNoStart': None,
-            'recordNoEnd': None,
+            'recordIxStart': None,
+            'recordIxEnd': None,
             'wktStepType': None,
             'lapTime': None,
             'avgCad': None,
@@ -464,22 +623,21 @@ def extract_lap_data_from_fit(fit_file_path, startWithWktStep):
             'avgDragFactor': None
         }
         for lap_data_field in lap:
-            if lap_data_field.name == 'message_index': lapData['lapNo'] = lap_data_field.value + 1
-            elif lap_data_field.name == 'total_timer_time': 
-                lapData['lapTime'] = int(round(lap_data_field.value,0))
-            elif lap_data_field.name == 'total_distance': lapData['lapDist'] = lap_data_field.value
-            elif lap_data_field.name == 'start_time': lapData['timeStart'] = lap_data_field.value
-            elif lap_data_field.name == 'intensity': lapData['wktStepType'] = lap_data_field.value
+            if lap_data_field.name == 'avg_cadence': lapData['avgCad'] = lap_data_field.value
             elif lap_data_field.name == 'avg_heart_rate': lapData['avgHR'] = lap_data_field.value
-            elif lap_data_field.name == 'max_heart_rate': lapData['maxHR'] = lap_data_field.value
+            elif lap_data_field.name == 'avg_power': lapData['avgPower'] = lap_data_field.value
             elif lap_data_field.name == 'enhanced_avg_speed': lapData['avgSpeed'] = lap_data_field.value
             elif lap_data_field.name == 'enhanced_max_speed': lapData['maxSpeed'] = lap_data_field.value
-            elif lap_data_field.name == 'avg_cadence': lapData['avgCad'] = lap_data_field.value
+            elif lap_data_field.name == 'intensity': lapData['wktStepType'] = lap_data_field.value
             elif lap_data_field.name == 'max_cadence': lapData['maxCad'] = lap_data_field.value
-            elif lap_data_field.name == 'avg_power': lapData['avgPower'] = lap_data_field.value
+            elif lap_data_field.name == 'max_heart_rate': lapData['maxHR'] = lap_data_field.value
             elif lap_data_field.name == 'max_power': lapData['maxPower'] = lap_data_field.value
+            elif lap_data_field.name == 'message_index': lapData['lapNo'] = lap_data_field.value + 1
+            elif lap_data_field.name == 'start_time': lapData['timeStart'] = lap_data_field.value + timedelta(hours=TZhours)
+            elif lap_data_field.name == 'total_timer_time': lapData['lapTime'] = int(round(lap_data_field.value,0))
+            elif lap_data_field.name == 'total_distance': lapData['lapDist'] = lap_data_field.value
             #if LapIx <10: print (LapIx, lap_data_field.name, lap_data_field.value)
-        print('---------------wktStep:',LapIx, lapData['wktStepType'])
+        #print('---------------wktStep:',LapIx, lapData['wktStepType'])
         if lapData['wktStepType'] == 4: lapData['wktStepType'] = 'recover'
         if lapData['wktStepType'] == 5: lapData['wktStepType'] = 'active' # according to SDK, 5=interval
         LapIx += 1
@@ -524,21 +682,12 @@ def merge_C2records_with_recordTable(recordTable, C2recordTable):
             C2recordIx += 1
         recordIx += 1
     
-    #for recordIx in range(40):
-        #print (recordTable[recordIx]['distance'], recordTable[recordIx]['C2distance'], recordTable[recordIx]['speed'], recordTable[recordIx]['C2speed'], recordTable[recordIx]['cadence'], recordTable[recordIx]['power'])
-        #print (recordTable[recordIx]['cadence'], recordTable[recordIx]['power'])
-    #print('\n----------------\n')
-    
     # FIX empty/None cadence and power records. Fill with last. Merge creates this due to not all seconds from Conccept2
     for recordIx in range(len(recordTable)):
         if recordTable[recordIx]['cadence'] == None:
             recordTable[recordIx]['cadence'] = recordTable[recordIx-1]['cadence']
         if recordTable[recordIx]['power'] == None:
             recordTable[recordIx]['power'] = recordTable[recordIx-1]['power']
-
-    #for recordIx in range(40):
-        #print (recordTable[recordIx]['distance'], recordTable[recordIx]['C2distance'], recordTable[recordIx]['speed'], recordTable[recordIx]['C2speed'], recordTable[recordIx]['cadence'], recordTable[recordIx]['power'])
-        #print (recordTable[recordIx]['cadence'], recordTable[recordIx]['power'])
 
     return recordTable
 
@@ -558,11 +707,6 @@ def merge_lapData_from_txt(lapTable, lapFromTxtTbl):
         #lapData['stepLen'] = (round((lapData['lapDist'] / 10) / (lapData['avgCad'] * lapData['lapTime'] / 60),2))  # step length acc to FFRT
 
         lapIx += 1
-
-        # Append the lap information to the list
-        #print(lapData)
-        #wait = input("Press Enter to continue.")
-        #print(lapData['totDist'])
 
     return lapTable
 
@@ -615,14 +759,16 @@ def calc_lapData_from_recordTable(recordTable, lapTable):
         CIQdragfactorLapSum += recordData['CIQdragfactor']
         recordData['lapNo'] = lapNo
 
+        # IF LAP START
         if recordTable[recordIx]['timestamp'] == lapTable[lapIx]['timeStart']:
             lapTable[lapIx]['HRstart'] = recordTable[recordIx]['HR']
-            lapTable[lapIx]['recordNoStart'] = recordIx
+            lapTable[lapIx]['recordIxStart'] = recordIx
         
+        # IF LAP END
         if recordTable[recordIx]['timestamp'] == lapTable[lapIx]['timeEnd']:
             lapTable[lapIx]['HRend'] = recordTable[recordIx]['HR']
-            lapTable[lapIx]['recordNoEnd'] = recordIx
-            if lapTable[lapIx]['lapDist'] == None or lapTable[lapIx]['lapDist'] == 0:
+            lapTable[lapIx]['recordIxEnd'] = recordIx
+            if lapTable[lapIx]['lapDist'] in [0, None]:
                 if lapIx == 0:
                     lapTable[lapIx]['lapDist'] = recordData['distance']
                 else:
@@ -632,14 +778,15 @@ def calc_lapData_from_recordTable(recordTable, lapTable):
             if lapTable[lapIx]['avgSpeed'] in [0, None]:
                 lapTable[lapIx]['avgSpeed'] = lapTable[lapIx]['lapDist'] / lapTable[lapIx]['lapTime']
             if lapTable[lapIx]['avgSpeed2'] in [0, None]:
-                lapTable[lapIx]['avgSpeed2'] = speedLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
+                lapTable[lapIx]['avgSpeed2'] = speedLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart'])
             if lapTable[lapIx]['avgCad'] in [0, None]:
-                lapTable[lapIx]['avgCad'] = cadLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
+                lapTable[lapIx]['avgCad'] = cadLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart'])
             if lapTable[lapIx]['avgPower'] in [0, None]:
-                lapTable[lapIx]['avgPower'] = powerLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
-            lapTable[lapIx]['avgStrokeLen'] = CIQstrokeLengthLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
-            lapTable[lapIx]['avgDragFactor'] = CIQdragfactorLapSum / (lapTable[lapIx]['recordNoEnd'] - lapTable[lapIx]['recordNoStart'])
-            lapTable[lapIx]['stepLen'] = (round((lapTable[lapIx]['lapDist'] / 10) / (lapTable[lapIx]['avgCad'] * lapTable[lapIx]['lapTime'] / 60),2))  # step length acc to FFRT
+                lapTable[lapIx]['avgPower'] = powerLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart'])
+            lapTable[lapIx]['avgStrokeLen'] = CIQstrokeLengthLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart'])
+            lapTable[lapIx]['avgDragFactor'] = CIQdragfactorLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart'])
+            lapTable[lapIx]['stepLen'] = (lapTable[lapIx]['lapDist']) / (lapTable[lapIx]['avgCad'] * lapTable[lapIx]['lapTime'] / 60)  # step length acc to FFRT
+            #print ('lap:'+str(lapNo)+' dist:'+str(lapTable[lapIx]['lapDist'])+' time:'+str(lapTable[lapIx]['lapTime'])+' cad:'+str(lapTable[lapIx]['avgCad'])+' stepL:'+str(lapTable[lapIx]['stepLen'])+' m/sek:'+str(lapTable[lapIx]['stepLen']*lapTable[lapIx]['avgCad']/60))
             speedLapSum = 0
             cadLapSum = 0
             powerLapSum = 0
@@ -659,6 +806,67 @@ def calc_lapData_from_recordTable(recordTable, lapTable):
     #print ('last rec: ', recordTable[recordIx - 1]['timestamp'])
 
     return lapTable, recordTable, totDist
+
+# ================================================================
+
+def calc_dist_speed_basedOn_cadence(recordTable, lapTable):
+    print('---calc_avg_in_lapTable', datetime.now())
+
+    recordIx = 0
+    lapIx = 0
+    lapNo = lapIx+1
+    lapSumOfRecordDist = 0
+    sumOfRecordDist = 0
+
+    for recordData in recordTable:
+        
+        recordDist = lapTable[lapIx]['stepLen']*recordData['cadence']/60
+        lapSumOfRecordDist += recordDist
+        sumOfRecordDist += recordDist
+
+        if recordTable[recordIx]['timestamp'] == lapTable[lapIx]['timeEnd']:
+            #print (lapNo, lapTable[lapIx]['totDist'], sumOfRecordDist, lapTable[lapIx]['lapDist'], lapSumOfRecordDist)
+            corrPerMeter = (lapSumOfRecordDist - lapTable[lapIx]['lapDist']) / lapSumOfRecordDist
+            #print (corrPerMeter)
+            
+            sumOfRecordDist = sumOfRecordDist - lapSumOfRecordDist
+            lapSumOfRecordDist = 0
+            for lapRecordIx in range(lapTable[lapIx]['recordIxStart'], lapTable[lapIx]['recordIxEnd']+1):
+                #recordTable[lapRecordIx][]
+                recordDist = lapTable[lapIx]['stepLen']*recordTable[lapRecordIx]['cadence']/60
+                recordDist = recordDist - recordDist * corrPerMeter
+                lapSumOfRecordDist += recordDist
+                sumOfRecordDist += recordDist
+                recordTable[lapRecordIx]['distance'] = sumOfRecordDist
+                recordTable[lapRecordIx]['speed'] = (recordTable[lapRecordIx]['distance'] - recordTable[lapRecordIx-1]['distance']) / 1 # 1 sec
+
+            #print (lapNo, lapTable[lapIx]['totDist'], sumOfRecordDist, lapTable[lapIx]['lapDist'], lapSumOfRecordDist, lapTable[lapIx]['lapDist'], '\n')
+            lapSumOfRecordDist = 0
+
+
+            lapIx += 1
+            lapNo = lapIx+1
+        recordIx += 1
+
+    """
+    outNewDistTxt_file = open(outNewRecordCSV_file_path, 'w')
+    outNewDistTxt_file.write('distance;cadence;power;speed;level;lapTime\n')
+    for record in recordTable:
+        csvLine = ''
+        csvLine += str(record['distance']/1000).replace('.',',') + ';' + str(record['cadence']).replace('.',',') + ';' + str(record['power']).replace('.',',') + ';'
+        csvLine += str(record['speed']).replace('.',',') + ';'
+        #print ('------------------', record['lapNo'], lapTable[record['lapNo']-1]['wktStepType'],lapTable[record['lapNo']-1]['level'])
+        csvLine += ';' + str(lapTable[record['lapNo']-1]['level'])
+        if lapTable[record['lapNo']-1]['wktStepType'] == 'active': 
+             csvLine += str(round(lapTable[record['lapNo']-1]['lapTime']/60,1)).replace('.',',')
+        else:
+            csvLine += '0'
+        csvLine += '\n'
+        outNewDistTxt_file.write(csvLine)
+    """    
+
+
+    return recordTable, lapTable
 
 # ================================================================
 
@@ -706,6 +914,74 @@ def calc_avg_in_lapTable(lapTable):
     return avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest
 
 
+# ================================================================
+
+def saveToCSV(outNewRecordCSV_file_path, saveCadence, savePower, saveLevel, savelapTime):
+
+    # CSV file with to be used to merge data in FFRT (developer tab, open in xl, paste data from csv, reimport xl)
+    outNewDistTxt_file = open(outNewRecordCSV_file_path, 'w')
+    header = ''
+    header += 'distance'
+    if saveCadence:
+        header += ';cadence'
+    if savePower: 
+        header += ';power'
+    header += ';speed'
+    if saveLevel:
+        header += ';level'
+    if savelapTime:
+        header += ';lapTime'
+    header += ';pace'
+    header += '\n'
+    outNewDistTxt_file.write(header)
+
+    for record in recordTable:
+        csvLine = ''
+        csvLine += str(record['distance']/1000).replace('.',',')
+        if saveCadence:
+            csvLine += ';'
+            csvLine += str(record['cadence']).replace('.',',')
+        if savePower:
+            csvLine += ';'
+            csvLine += str(record['power']).replace('.',',')
+        csvLine += ';'
+        csvLine += mps2kmph_alldecStr(record['speed']).replace('.',',')
+        if saveLevel:
+            csvLine += ';'
+            csvLine += str(lapTable[record['lapNo']-1]['level'])
+        if savelapTime:
+            csvLine += ';'
+            if lapTable[record['lapNo']-1]['wktStepType'] == 'active': 
+                csvLine += str(round(lapTable[record['lapNo']-1]['lapTime']/60,1)).replace('.',',')
+            else:
+                csvLine += '0'
+        csvLine += ';'
+        csvLine += mps2minpkm_Str(record['speed']) #.replace(':','.')
+        csvLine += '\n'
+        outNewDistTxt_file.write(csvLine)
+    
+    return
+
+# ================================================================
+
+def saveShowLapDistances(outLapTxt_file, lapTable, totDist):
+    # LAP DISTANCES to be used in FFRT when calculating indoor activities like 'indoor bike' or elliptical/cross trainer
+    print('-----------')
+    print('LAP DISTANCES to be used in FFRT when calculating indoor activities like indoor bike or elliptical/cross trainer')
+    print('-----------')
+    outLapTxt_file.write ('-----------\n')
+    outLapTxt_file.write ('LAP DISTANCES to be used in FFRT when calculating indoor activities like indoor bike or elliptical/cross trainer\n')
+    outLapTxt_file.write ('-----------\n')
+
+    for lapData in lapTable:
+            lapTxtLine = 'lap' + str(lapData['lapNo']) +  ' '
+            lapTxtLine += m2km_2decStr(lapData['lapDist']) + 'km '
+            lapTxtLine += str(round(lapData['stepLen'] / 10, 2))
+            print (lapTxtLine)
+            outLapTxt_file.write (lapTxtLine + '\n')
+    print('Totaldist: ' + m2km_2decStr(totDist) + ' km')
+    outLapTxt_file.write ('Totaldist: ' + m2km_2decStr(totDist) + ' km' + '\n')
+    return
 # ================================================================
 
 def saveSpinBikeLapTable_to_txt():
@@ -796,21 +1072,8 @@ def saveSpinBikeLapTable_to_txt():
 def saveGymBikeLapTable_to_txt():
     print('----saveGymBikeLapTable_to_txt', datetime.now())
     
-    # CSV file with to be used to merge data in FFRT (developer tab, open in xl, paste data from csv, reimport xl)
-    outNewDistTxt_file = open(outNewRecordCSV_file_path, 'w')
-    outNewDistTxt_file.write('distance;cadence;power;speed;lapTime;level\n')
-    for record in recordTable:
-        csvLine = ''
-        csvLine += str(record['distance']/1000).replace('.',',') + ';' + str(record['cadence']).replace('.',',') + ';' + str(record['power']).replace('.',',') + ';'
-        csvLine += str(record['speed']).replace('.',',') + ';'
-        if lapTable[record['lapNo']-1]['wktStepType'] == 'active': 
-             csvLine += str(round(lapTable[record['lapNo']-1]['lapTime']/60,1)).replace('.',',')
-        else:
-            csvLine += '0'
-        csvLine += ';' + str(lapTable[record['lapNo']-1]['level'])
-        csvLine += '\n'
-        outNewDistTxt_file.write(csvLine)
-        
+    saveToCSV(outNewRecordCSV_file_path, False, False, True, True) #...saveCadence, savePover, saveLevel, saveLapTime
+
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
 
@@ -899,23 +1162,8 @@ def saveGymBikeLapTable_to_txt():
         lapTxtLine += str(int(lapData['totDist']/10))
         outLapTxt_file.write (lapTxtLine + '\n')
 
-    # LAP DISTANCES to be used in FFRT when calculating indoor activities like 'indoor bike' or elliptical/cross trainer
-    print('-----------')
-    print('LAP DISTANCES to be used in FFRT when calculating indoor activities like indoor bike or elliptical/cross trainer')
-    print('-----------')
-    outLapTxt_file.write ('-----------\n')
-    outLapTxt_file.write ('LAP DISTANCES to be used in FFRT when calculating indoor activities like indoor bike or elliptical/cross trainer\n')
-    outLapTxt_file.write ('-----------\n')
+    saveShowLapDistances(outLapTxt_file, lapTable, totDist)
 
-    for lapData in lapTable:
-            lapTxtLine = 'lap' + str(lapData['lapNo']) +  ' '
-            lapTxtLine += m2km_2decStr(lapData['lapDist']) + 'km '
-            lapTxtLine += str(lapData['stepLen'])
-            print (lapTxtLine)
-            outLapTxt_file.write (lapTxtLine + '\n')
-    print('Totaldist: ' + m2km_2decStr(totDist) + ' km')
-    outLapTxt_file.write ('Totaldist: ' + m2km_2decStr(totDist) + ' km' + '\n')
-    
     return
 
 # ================================================================
@@ -923,21 +1171,8 @@ def saveGymBikeLapTable_to_txt():
 def saveCTLapTable_to_txt():
     print('----saveCTLapTable_to_txt', datetime.now())
 
-    # CSV file with to be used to merge data in FFRT (developer tab, open in xl, paste data from csv, reimport xl)
-    outNewDistTxt_file = open(outNewRecordCSV_file_path, 'w')
-    outNewDistTxt_file.write('distance;cadence;power;speed;lapTime;level\n')
-    for record in recordTable:
-        csvLine = ''
-        csvLine += str(record['distance']/1000).replace('.',',') + ';' + str(record['cadence']).replace('.',',') + ';' + str(record['power']).replace('.',',') + ';'
-        csvLine += str(record['speed']).replace('.',',') + ';'
-        if lapTable[record['lapNo']-1]['wktStepType'] == 'active': 
-             csvLine += str(round(lapTable[record['lapNo']-1]['lapTime']/60,1)).replace('.',',')
-        else:
-            csvLine += '0'
-        csvLine += ';' + str(lapTable[record['lapNo']-1]['level'])
-        csvLine += '\n'
-        outNewDistTxt_file.write(csvLine)
- 
+    saveToCSV(outNewRecordCSV_file_path, False, False, True, True) #...savCadence, savePover, saveLevel, saveLapTime
+
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
 
@@ -1033,22 +1268,7 @@ def saveCTLapTable_to_txt():
         lapTxtLine += str(int(lapData['totDist']/10))
         outLapTxt_file.write (lapTxtLine + '\n')
 
-    # LAP DISTANCES to be used in FFRT when calculating indoor activities like 'indoor bike' or elliptical/cross trainer
-    print('-----------')
-    print('LAP DISTANCES to be used in FFRT when calculating indoor activities like indoor bike or elliptical/cross trainer')
-    print('-----------')
-    outLapTxt_file.write ('-----------\n')
-    outLapTxt_file.write ('LAP DISTANCES to be used in FFRT when calculating indoor activities like indoor bike or elliptical/cross trainer\n')
-    outLapTxt_file.write ('-----------\n')
-
-    for lapData in lapTable:
-            lapTxtLine = 'lap' + str(lapData['lapNo']) +  ' '
-            lapTxtLine += m2km_2decStr(lapData['lapDist']) + 'km '
-            lapTxtLine += str(lapData['stepLen'])
-            print (lapTxtLine)
-            outLapTxt_file.write (lapTxtLine + '\n')
-    print('Totaldist: ' + m2km_2decStr(totDist) + ' km')
-    outLapTxt_file.write ('Totaldist: ' + m2km_2decStr(totDist) + ' km' + '\n')
+    saveShowLapDistances(outLapTxt_file, lapTable, totDist)
     
     return
 
@@ -1057,20 +1277,7 @@ def saveCTLapTable_to_txt():
 def saveSkiErgLapTable_to_txt():
     print('----saveSkiErgLapTable_to_txt', datetime.now())
     
-    # CSV file with to be used to merge data in FFRT (developer tab, open in xl, paste data from csv, reimport xl)
-    outNewDistTxt_file = open(outNewRecordCSV_file_path, 'w')
-    outNewDistTxt_file.write('distance;cadence;power;speed;lapTime\n')
-    for record in recordTable:
-        csvLine = ''
-        csvLine += str(record['distance']/1000).replace('.',',') + ';' + str(record['cadence']).replace('.',',') + ';' + str(record['power']).replace('.',',') + ';'
-        csvLine += str(record['speed']).replace('.',',') + ';'
-        if lapTable[record['lapNo']-1]['wktStepType'] == 'active': 
-             csvLine += str(round(lapTable[record['lapNo']-1]['lapTime']/60,1)).replace('.',',')
-        else:
-            csvLine += '0'
-        csvLine += '\n'
-        outNewDistTxt_file.write(csvLine)
-        
+    saveToCSV(outNewRecordCSV_file_path, True, True, False, True) #...saveCadence, savePover, saveLevel, saveLapTime
         
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
@@ -1167,13 +1374,13 @@ def saveSkiErgLapTable_to_txt():
             lapNo += 1
             if lapData['wktStepType'] == 'active' and lapNo < lapCountFit:
                 speedLine = ''
-                speedLine += mps2minp500m_Str( (recordTable[lapData['recordNoEnd']-4]['distance']-recordTable[lapData['recordNoStart']-4]['distance'])/lapData['lapTime']) + '-4 '
-                speedLine += mps2minp500m_Str( (recordTable[lapData['recordNoEnd']-3]['distance']-recordTable[lapData['recordNoStart']-3]['distance'])/lapData['lapTime']) + '-3 '
-                speedLine += mps2minp500m_Str( (recordTable[lapData['recordNoEnd']-2]['distance']-recordTable[lapData['recordNoStart']-2]['distance'])/lapData['lapTime']) + '-2 '
-                speedLine += mps2minp500m_Str( (recordTable[lapData['recordNoEnd']-1]['distance']-recordTable[lapData['recordNoStart']-1]['distance'])/lapData['lapTime']) + '-1 '
+                speedLine += mps2minp500m_Str( (recordTable[lapData['recordIxEnd']-4]['distance']-recordTable[lapData['recordIxStart']-4]['distance'])/lapData['lapTime']) + '-4 '
+                speedLine += mps2minp500m_Str( (recordTable[lapData['recordIxEnd']-3]['distance']-recordTable[lapData['recordIxStart']-3]['distance'])/lapData['lapTime']) + '-3 '
+                speedLine += mps2minp500m_Str( (recordTable[lapData['recordIxEnd']-2]['distance']-recordTable[lapData['recordIxStart']-2]['distance'])/lapData['lapTime']) + '-2 '
+                speedLine += mps2minp500m_Str( (recordTable[lapData['recordIxEnd']-1]['distance']-recordTable[lapData['recordIxStart']-1]['distance'])/lapData['lapTime']) + '-1 '
                 speedLine += mps2minp500m_Str( lapData['lapDist']/lapData['lapTime']) + '-0 '
-                speedLine += mps2minp500m_Str( (recordTable[lapData['recordNoEnd']+1]['distance']-recordTable[lapData['recordNoStart']+1]['distance'])/lapData['lapTime']) + '+1 '
-                speedLine += mps2minp500m_Str( (recordTable[lapData['recordNoEnd']+2]['distance']-recordTable[lapData['recordNoStart']+2]['distance'])/lapData['lapTime']) + '+2 '
+                speedLine += mps2minp500m_Str( (recordTable[lapData['recordIxEnd']+1]['distance']-recordTable[lapData['recordIxStart']+1]['distance'])/lapData['lapTime']) + '+1 '
+                speedLine += mps2minp500m_Str( (recordTable[lapData['recordIxEnd']+2]['distance']-recordTable[lapData['recordIxStart']+2]['distance'])/lapData['lapTime']) + '+2 '
                 print(speedLine)
    
     return
@@ -1260,7 +1467,7 @@ def saveRunLapTable_to_txt():
 # ================================================================
 # Create BASE FILE NAME
 # ================================================================
-def createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product):
+def createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver):
     out_baseFileName = ''
     out_baseFileName += str(timeFirstRecord).replace(':','-').replace(' ','-')
     out_baseFileName += '-' + actName
@@ -1268,6 +1475,7 @@ def createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, prod
     out_baseFileName += '-' + sec2minSec_shStr(totTime).replace(':','.') + 'min'
     if not wktName == '': out_baseFileName += '-' + wktName
     if not product == '': out_baseFileName += '-' + product
+    if not SWver == '': out_baseFileName += '-v' + str(SWver)
     return (out_baseFileName)
 
 # ================================================================
@@ -1297,7 +1505,12 @@ def outFilePaths(pathPrefix, pathDL, out_baseFileName):
     # CSV FILE
     outNewRecordCSV_file_path = pathPrefix + pathDL + out_baseFileName + '-newDistCadPower.csv'
     # NEW FIT FILE NAME
-    newFitFileName = pathPrefix + pathDL + out_baseFileName + '-analyzed.fit'
+    newFitFileName = pathPrefix + pathDL + out_baseFileName
+    if doRename:
+        newFitFileName += '-renamed.fit' 
+    else:
+        newFitFileName += '-analyzed.fit'
+    
     return(outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName)
     
 # ================================================================
@@ -1312,6 +1525,9 @@ print('No of args:' + str(argsCount) + str(sys.argv))
 #device = 'pc'
 device = 'pc1drv'
 #device = 'm'
+
+# Hours to add to FIT file TIME
+TZhours = 2
 
 # If no workout steps in file, then start with this, can be "WarmupThenActive" OR "WarmupAndRest"
 startWithWktStep = 'WarmupThenActive'    
@@ -1334,10 +1550,16 @@ else:
     ArgsMode = False
 
 # Check if TEST
-if sys.argv[1] == 'test' and ArgsMode:
+if sys.argv[1] == 'test':
     test = True
 else:
     test = False
+
+# Check if RENAME
+if sys.argv[1] == 'rename':
+    doRename = True
+else:
+    doRename = False
 
 # Decide and Assign activityType
 if test:
@@ -1375,7 +1597,7 @@ if test:
             exit()
     elif activityType == 'skierg':
         fit_file_path = pathPrefix + pathDL + '2024-09-30-14-48-09-SkiErg-11.0km-61.04min-Bike_4x3-2-1min-epix2pro-analyzed.fit'
-        C2fit_file_path = pathPrefix + pathDL + '2024-09-30-14-46-00-SkiErg-11.0km-60.60min-concept2-analyzed.fit'
+        C2fit_file_path = pathPrefix + pathDL + '2024-09-30-14-46-00-SkiErg-11.0km-61min-concept2-analyzed.fit'
         hasC2fitFile = True
         file_exist = os.path.isfile(C2fit_file_path)
         if not file_exist:
@@ -1388,84 +1610,113 @@ if test:
     if not file_exist:
         print('---------------- TEST Fit File does not exist!')
         exit()
+elif doRename:
+    folder = pathPrefix + pathDL
+    filter = sys.argv[2]
 elif ArgsMode:
     fit_file_path = pathPrefix + pathDL + sys.argv[2]
 else:
     # NO Args mode, use config here in file
     fit_file_path = pathPrefix + pathDL + '17090763560.zip'
 
-# UNZIP if ZIP file and reassign FIT file
-fileName = pathlib.Path(fit_file_path).stem
-ext = pathlib.Path(fit_file_path).suffix
+if not doRename:
+    # UNZIP if ZIP file and reassign FIT file
+    fileName = pathlib.Path(fit_file_path).stem
+    ext = pathlib.Path(fit_file_path).suffix
 
-zip_file_path = fit_file_path
-if ext =='.zip':
-    file_exist = os.path.isfile(zip_file_path)
+    zip_file_path = fit_file_path
+    if ext =='.zip':
+        file_exist = os.path.isfile(zip_file_path)
+        if not file_exist:
+            print('---------------- ZIP File does not exist!')
+            exit()
+        zip = ZipFile(zip_file_path)
+        zip.extractall(pathPrefix + pathDL)
+        zip.close()
+        fit_file_path = pathPrefix + pathDL + fileName + '_ACTIVITY.fit'
+
+    # Check if FIT file EXIST
+    file_exist = os.path.isfile(fit_file_path)
     if not file_exist:
-        print('---------------- ZIP File does not exist!')
+        print('---------------- Fit File does not exist!')
         exit()
-    zip = ZipFile(zip_file_path)
-    zip.extractall(pathPrefix + pathDL)
-    zip.close()
-    fit_file_path = pathPrefix + pathDL + fileName + '_ACTIVITY.fit'
 
-# Check if FIT file EXIST
-file_exist = os.path.isfile(fit_file_path)
-if not file_exist:
-    print('---------------- Fit File does not exist!')
-    exit()
+    # ================================================================
+    # Extract SESSION data and show from org FIT file
+    # ================================================================
+    product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName = extract_session_data_from_fit(fit_file_path)
 
-# ================================================================
-# Extract SESSION data and show from org FIT file
-# ================================================================
-product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName = extract_session_data_from_fit(fit_file_path)
+    # If INFO stop here
+    if activityType == 'info':
+        exit()
 
-# If INFO stop here
-if activityType == 'info':
-    exit()
-
-# Assign activity type if AUTO mode
-activityType = activityType.lower()
-if activityType == 'auto':
-    if actName.lower().find('spin') >= 0: activityType = 'spinbike'
-    if actName.lower().find('cykel inne') >= 0: activityType = 'gymbike'
-    if actName.lower().find('gymbike') >= 0: activityType = 'gymbike'
-    if actName.lower().find('ellipt') >= 0 : activityType = 'ct'
-    if actName.lower().find('ct') >= 0: activityType = 'ct'
-    if actName.lower().find('skierg') >= 0: activityType = 'skierg'
-    if actName.lower().find('run') >= 0: activityType = 'run'
+    # Assign activity type if AUTO mode
+    activityType = activityType.lower()
+    if activityType == 'auto':
+        if actName.lower().find('spin') >= 0: activityType = 'spinbike'
+        if actName.lower().find('cykel inne') >= 0: activityType = 'gymbike'
+        if actName.lower().find('gymbike') >= 0: activityType = 'gymbike'
+        if actName.lower().find('ellipt') >= 0 : activityType = 'ct'
+        if actName.lower().find('ct') >= 0: activityType = 'ct'
+        if actName.lower().find('skierg') >= 0: activityType = 'skierg'
+        if actName.lower().find('run') >= 0: activityType = 'run'
 
 # CHECK if activity type is CORRECT
-if activityType in ['spinbike','gymbike','ct','skierg','run']:
+if activityType in ['spinbike','gymbike','ct','skierg','run','rename']:
     print('Using activityType: ' + activityType)
 else:
     print('---------------Wrong activityType! ', activityType, actName)
     exit()
 
-# Assign C2 FIT file if not test
-if activityType == 'skierg' and not test:
-    if ArgsMode:
-        if argsCount >= 4:
-            hasC2fitFile = True
-            C2fit_file_path = pathPrefix + pathDL + sys.argv[3]
-        else:
-            hasC2fitFile = False
-    else:
-        # NO Args MODE, assign file here in program
-        C2fit_file_path = pathPrefix + pathDL + '240927-concept2-logbook-workout-92357194.fit'
-        hasC2fitFile = True
-    file_exist = os.path.isfile(C2fit_file_path)
-    if not file_exist:
-        print('---------------- C2 FIT File does not exist!')
-        exit()
+# ================================================================
+# ================================================================
+# RENAME
+# ================================================================
+if activityType == 'rename':
 
-# Assign LAP TEXT file if NOT test
-if activityType in ['gymbike', 'ct'] and not test:
-    lap_txtFile_path = pathPrefix + 'documents/indoorBikeLapsLatest.txt'
-    file_exist = os.path.isfile(lap_txtFile_path)
-    if not file_exist:
-        print('---------------- Lap txtFile does not exist! ', lap_txtFile_path)
-        exit()
+    print('Rename in folder:', folder, '\n')
+
+    files = os.listdir(folder)
+
+    for file in files:
+        if file.find(filter) >= 0 and (file.find('.fit') or file.find('.zip')): 
+            fit_file_path = folder + file
+
+            # UNZIP if ZIP file and reassign FIT file
+            fileName = pathlib.Path(fit_file_path).stem
+            ext = pathlib.Path(fit_file_path).suffix
+
+            zip_file_path = fit_file_path
+            if ext =='.zip':
+                file_exist = os.path.isfile(zip_file_path)
+                if not file_exist:
+                    print('---------------- ZIP File does not exist!')
+                    exit()
+                zip = ZipFile(zip_file_path)
+                zip.extractall(pathPrefix + pathDL)
+                zip.close()
+                fit_file_path = pathPrefix + pathDL + fileName + '_ACTIVITY.fit'
+
+            # Check if FIT file EXIST
+            file_exist = os.path.isfile(fit_file_path)
+            if not file_exist:
+                print('---------------- Fit File does not exist!')
+                exit()
+            
+            # Extract SESSION data and show from org FIT file
+            # ================================================================
+            product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName = extract_session_data_from_fit(fit_file_path)
+
+            out_baseFileName = createBaseFileName(startTime, actName, totDist, totTime, wktName, product, SWver)
+            outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
+            print ('src:', fit_file_path)
+            print ('dst:', newFitFileName)
+
+            renameFitFile(fit_file_path, newFitFileName)
+            removeZipFile(ext, zip_file_path)
+
+    print('=============== RENAMING END ================')
+    exit()
 
 
 # ================================================================
@@ -1473,6 +1724,25 @@ if activityType in ['gymbike', 'ct'] and not test:
 # SkiErg
 # ================================================================
 if activityType == 'skierg':
+
+    # Assign C2 FIT file if not test
+    # ================================================================
+    if not test:
+        if ArgsMode:
+            if argsCount >= 4:
+                hasC2fitFile = True
+                C2fit_file_path = pathPrefix + pathDL + sys.argv[3]
+            else:
+                hasC2fitFile = False
+        else:
+            # NO Args MODE, assign file here in program
+            C2fit_file_path = pathPrefix + pathDL + '240927-concept2-logbook-workout-92357194.fit'
+            hasC2fitFile = True
+        file_exist = os.path.isfile(C2fit_file_path)
+        if not file_exist:
+            print('---------------- C2 FIT File does not exist!')
+            exit()
+
     if hasC2fitFile:
         # ================================================================
         # Extract SESSION data and show from C2 FIT file
@@ -1514,7 +1784,7 @@ if activityType == 'skierg':
     # Calc LAP DATA fron recordTable
     # ================================================================
     lapTable, recordTable, totDistLastRecord = calc_lapData_from_recordTable(recordTable, lapTable)
-    if totDist == None: totDist = totDistLastRecord
+    if totDist in [0, None]: totDist = totDistLastRecord
 
     # ================================================================
     # Calc AVG DATA in lapTable
@@ -1522,10 +1792,10 @@ if activityType == 'skierg':
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
     if hasC2fitFile:
-        C2out_baseFileName = createBaseFileName(C2timeFirstRecord, actName, C2totDist, C2totTime, C2wktName, C2product)
+        C2out_baseFileName = createBaseFileName(C2timeFirstRecord, actName, C2totDist, C2totTime, C2wktName, C2product, C2SWver)
         C2outLapTxt_file_path, C2outNewRecordCSV_file_path, C2newFitFileName = outFilePaths(pathPrefix, pathDL, C2out_baseFileName)
     
-    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product)
+    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
     outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
 
     if test:
@@ -1542,12 +1812,21 @@ if activityType == 'skierg':
 # GYMBIKE & CT
 # ================================================================
 if activityType in ['gymbike', 'ct']:
+
+    # Assign LAP TEXT file if NOT test
     # ================================================================
+    if not test:
+        lap_txtFile_path = pathPrefix + 'documents/indoorBikeLapsLatest.txt'
+        file_exist = os.path.isfile(lap_txtFile_path)
+        if not file_exist:
+            print('---------------- Lap txtFile does not exist! ', lap_txtFile_path)
+            exit()
+
     # Extract LAP data from TXT FIT file
     # ================================================================
     lapFromTxtTbl, lapCountTxt, totDistTxtFile = extract_lap_data_from_txt(lap_txtFile_path)
-    if totDist == None: totDist = totDistTxtFile
-    
+    if totDist in [0, None]: totDist = totDistTxtFile
+
     recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fit_file_path)
     lapTable = extract_lap_data_from_fit(fit_file_path, startWithWktStep)
 
@@ -1559,12 +1838,15 @@ if activityType in ['gymbike', 'ct']:
     lapTable = merge_lapData_from_txt(lapTable, lapFromTxtTbl)
 
     lapTable, recordTable, totDistLastRecord = calc_lapData_from_recordTable(recordTable, lapTable)
-    if totDist == None: totDist = totDistLastRecord
+    if totDist in [0, None]: totDist = totDistLastRecord
+    
+    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
+    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
+
+    recordTable, lapTable = calc_dist_speed_basedOn_cadence(recordTable, lapTable)
 
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
-    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product)
-    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
 
     if test:
         print('================ TEST =================')
@@ -1586,11 +1868,11 @@ if activityType == 'spinbike':
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
     
     lapTable, recordTable, totDistLastRecord = calc_lapData_from_recordTable(recordTable, lapTable)
-    if totDist == None: totDist = totDistLastRecord
+    if totDist in [0, None]: totDist = totDistLastRecord
 
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
-    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product)
+    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
     outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
 
     if test:
@@ -1610,11 +1892,11 @@ if activityType == 'run':
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
 
     lapTable, recordTable, totDistLastRecord = calc_lapData_from_recordTable(recordTable, lapTable)
-    if totDist == None: totDist = totDistLastRecord
+    if totDist in [0, None]: totDist = totDistLastRecord
 
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
-    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product)
+    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
     outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
 
     if test:
