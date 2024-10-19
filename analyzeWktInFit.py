@@ -1,9 +1,10 @@
 ﻿import os
 import sys
 from datetime import datetime, time, timedelta
+import pytz
 import fitparse
 from zipfile import ZipFile
-import pathlib
+from pathlib import Path 
 import filecmp
 
 # ================================================================
@@ -132,12 +133,12 @@ def mps2kmph_alldecStr (speed):
 # ================================================================
 # ================================================================
 
-def extract_session_data_from_fit(fit_file_path):
+def extract_session_data_from_fit(fitFile_path_name, fileInfo):
     if not doRename:
         print('--extract_SESSION_data_from_fit', datetime.now())
     
     # Parse the FIT txtFile
-    fitfile = fitparse.FitFile(fit_file_path)
+    fitfile = fitparse.FitFile(fitFile_path_name)
     recordTable = []
     recordIx = 0
     # Iterate over all messages of type "record"
@@ -189,7 +190,9 @@ def extract_session_data_from_fit(fit_file_path):
             elif fit_record_data.name == 'enhanced_avg_speed' and avgSpeed in [0, None]: avgSpeed = fit_record_data.value
             elif fit_record_data.name == 'num_laps': noLaps = fit_record_data.value
             elif fit_record_data.name == 'sport': sport = fit_record_data.value
-            elif fit_record_data.name == 'start_time': startTime = fit_record_data.value + timedelta(hours=TZhours)
+            elif fit_record_data.name == 'start_time': 
+                startTime = fit_record_data.value
+                startTime = pytz.utc.localize(startTime).astimezone(timeZone)
             elif fit_record_data.name == 'sub_sport': subSport = fit_record_data.value
             elif fit_record_data.name == 'total_timer_time': totTime = fit_record_data.value
             elif fit_record_data.name == 'total_distance' and totDist in [0, None]: totDist = fit_record_data.value
@@ -225,6 +228,7 @@ def extract_session_data_from_fit(fit_file_path):
     actName = actName.replace('Spin','SpinBike')
     actName = actName.replace('SBike','SpinBike')
 
+    if actName.find('Ellipt') >= 0: actName = 'Elliptical'
     actName = actName.replace('Elliptical','CT')
     actName = actName.replace('Ellipt','Elliptical')
     actName = actName.replace('ellipt','Elliptical')
@@ -238,17 +242,23 @@ def extract_session_data_from_fit(fit_file_path):
 
     #wktName = wktName.replace('×','x').replace('(','_').replace(')','_').replace(' ','_')
     actName = actName.replace(' ','_')
+
+    wktNameOrg = wktName
+    wktName = wktName.replace(' (bike)','')
+    wktName = wktName.replace('/','!')
     wktName = wktName.replace(' ','_')
     
-    infoLine = '\nACTIVITY FILE INFO before\n---------------\n'
-    infoLine += 'StartTime: ' + str(startTime) + '\n'
+    infoLine = '---------------\nACTIVITY FILE INFO before\n---------------\n'
+    infoLine += 'StartTime: ' + str(startTime) + ' DST: ' + str(startTime.dst()) + '\n'
     infoLine += 'Prod: ' + product + ' v' + str(SWver) + ', ProdNo: ' + str(garminProd) + ', Manuf: ' + manufacturer + '\n'
     infoLine += 'WatchActivity: ' + actNameOrg + '->' + actName + ', Sport: ' + sport + ', subSport: ' + subSport + '\n'
-    infoLine += 'WktName: ' + wktName + ', no of Laps: ' + str(noLaps) + '\n'
+    infoLine += 'WktName: ' + wktNameOrg + '->' + wktName + ', no of Laps: ' + str(noLaps) + '\n'
     infoLine += sec2minSec_longStr(totTime) + 'min, '
     infoLine += m2km_1decStr(totDist) + 'km, ' + mps2kmph_1decStr(avgSpeed) + 'km/h\n'
-    infoLine += '----------------'
-    print(infoLine)  
+    infoLine += '----------------\n'
+    print(infoLine)
+
+    fileInfo += infoLine
 
     if activityType == 'info':
 
@@ -295,7 +305,9 @@ def extract_session_data_from_fit(fit_file_path):
                 elif lap_data_field.name == 'max_heart_rate': lapData['maxHR'] = lap_data_field.value
                 elif lap_data_field.name == 'max_power': lapData['maxPower'] = lap_data_field.value
                 elif lap_data_field.name == 'message_index': lapData['lapNo'] = lap_data_field.value + 1
-                elif lap_data_field.name == 'start_time': lapData['timeStart'] = lap_data_field.value + timedelta(hours=TZhours)
+                elif lap_data_field.name == 'start_time': 
+                    lapData['timeStart'] = lap_data_field.value# + timedelta(hours=TZhours)
+                    lapData['timeStart'] = pytz.utc.localize(lapData['timeStart']).astimezone(timeZone)
                 elif lap_data_field.name == 'total_timer_time': lapData['lapTime'] = int(round(lap_data_field.value,0))
                 elif lap_data_field.name == 'total_distance': lapData['lapDist'] = lap_data_field.value
                 elif lap_data_field.name == 'wkt_step_index': lapData['wktStepIx'] = lap_data_field.value
@@ -309,7 +321,11 @@ def extract_session_data_from_fit(fit_file_path):
 
             printLine = ''
             printLine += str(lapData['lapNo'])
-            printLine += ', wktStepType: '
+            printLine += ', '
+            printLine += sec2minSec_shStr(lapData['lapTime'])
+            printLine += 'min, '
+            printLine += str(lapData['avgCad'])
+            printLine += 'rpm, wktStepType: '
             printLine += str(lapData['wktStepType'])
             printLine += ', wktStepIx: '
             printLine += str(lapData['wktStepIx'])
@@ -320,7 +336,7 @@ def extract_session_data_from_fit(fit_file_path):
 
         print('\nWORKOUT STEPS\n-----------')
         for fit_record in fitfile.get_messages('workout_step'):
-            if recordIx <10: print('\n',fit_record)
+            #if recordIx <10: print('\n',fit_record)
             # Extract data fields
             recordData = {
                 'targetHRhigh': None,
@@ -346,7 +362,7 @@ def extract_session_data_from_fit(fit_file_path):
                 if fit_record_data.name == 'repeat_steps': recordData['repeatCount'] = fit_record_data.value
                 if fit_record_data.name == 'target_type': recordData['targetType'] = fit_record_data.value
                 #if recordIx <10: print(fit_record_data)
-                if recordIx < 10: print(fit_record_data.name, fit_record_data.value)
+                #if recordIx < 10: print(fit_record_data.name, fit_record_data.value)
             if recordData['stepType'] == 4: recordData['stepType'] = 'recover'
             if recordData['stepType'] == 5: recordData['stepType'] = 'active' # according to SDK, 5=interval
             recordTable.append(recordData)
@@ -382,18 +398,18 @@ def extract_session_data_from_fit(fit_file_path):
 
             print(printLine)
     
-    return product, SWver, totDist, avgSpeed, noLaps, sport, startTime, subSport, totTime, actName, wktName
+    return product, SWver, totDist, avgSpeed, noLaps, sport, startTime, subSport, totTime, actName, wktName, fileInfo
 
 # ================================================================
 
-def extract_lap_data_from_txt(lap_txtFile_path):
+def extract_lap_data_from_txt(manualLapsFileName):
     print('-extract_lap_data_from_txt')
 
     # List to store the rows
     lapFromTxtTbl = []
 
     # Open the text txtFile
-    with open(lap_txtFile_path, 'r') as txtFile:
+    with open(manualLapsFileName, 'r') as txtFile:
         lapIx = 0
         for line in txtFile:
             lap_info_inTxt = {
@@ -421,11 +437,11 @@ def extract_lap_data_from_txt(lap_txtFile_path):
 
 # ================================================================
 
-def extract_record_data_from_C2fit(fit_file_path):
+def extract_record_data_from_C2fit(fitFile_path_name):
     print('--extract_RECORD_data_from_C2fit', datetime.now())
     
     # Parse the FIT txtFile
-    fitfile = fitparse.FitFile(fit_file_path)
+    fitfile = fitparse.FitFile(fitFile_path_name)
     recordTable = []
     recordIx = 0
     # Iterate over all messages of type "record"
@@ -442,7 +458,9 @@ def extract_record_data_from_C2fit(fit_file_path):
         }
         for fit_record_data in fit_record:
             #if (recordIx / 300) == (int(recordIx/300)): print (fit_record_data.name, fit_record_data.value)
-            if fit_record_data.name == 'timestamp': recordData['timestamp'] = fit_record_data.value + timedelta(hours=TZhours)
+            if fit_record_data.name == 'timestamp': 
+                recordData['timestamp'] = fit_record_data.value# + timedelta(hours=TZhours)
+                recordData['timestamp'] = pytz.utc.localize(recordData['timestamp']).astimezone(timeZone)
             elif fit_record_data.name == 'heart_rate': recordData['HR'] = fit_record_data.value
             elif fit_record_data.name == 'distance': recordData['distance'] = fit_record_data.value
             elif fit_record_data.name == 'cadence': recordData['cadence'] = fit_record_data.value
@@ -489,11 +507,11 @@ def extract_record_data_from_C2fit(fit_file_path):
 
 # ================================================================
 
-def extract_record_data_from_fit(fit_file_path):
+def extract_record_data_from_fit(fitFile_path_name):
     print('--extract_RECORD_data_from_fit', datetime.now())
     
     # Parse the FIT txtFile
-    fitfile = fitparse.FitFile(fit_file_path)
+    fitfile = fitparse.FitFile(fitFile_path_name)
     recordTable = []
     recordIx = 0
    
@@ -528,7 +546,9 @@ def extract_record_data_from_fit(fit_file_path):
             elif fit_record_data.name == 'power': recordData['power'] = fit_record_data.value
             elif fit_record_data.name == 'Speed' and  recordData['speed'] in [0, None]: recordData['speed'] = fit_record_data.value                                       # speed from C2 SkiErg CIQ speed
             elif fit_record_data.name == 'StrokeLength': recordData['CIQstrokeLen'] = fit_record_data.value
-            elif fit_record_data.name == 'timestamp': recordData['timestamp'] = fit_record_data.value + timedelta(hours=TZhours)
+            elif fit_record_data.name == 'timestamp': 
+                recordData['timestamp'] = fit_record_data.value# + timedelta(hours=TZhours)
+                recordData['timestamp'] = pytz.utc.localize(recordData['timestamp']).astimezone(timeZone)
             elif fit_record_data.name == 'Training_session': recordData['CIQtrainSess'] = fit_record_data.value
             #print(fit_record_data)
             #if recordIx <10: print(fit_record_data.name, fit_record_data.value)
@@ -595,10 +615,10 @@ def extract_record_data_from_fit(fit_file_path):
 
 # ================================================================
 
-def extract_lap_data_from_fit(fit_file_path, startWithWktStep):
+def extract_lap_data_from_fit(fitFile_path_name, startWithWktStep):
     print('--extract_LAP_data_from_fit', datetime.now())
     # Parse the FIT txtFile
-    fitfile = fitparse.FitFile(fit_file_path)
+    fitfile = fitparse.FitFile(fitFile_path_name)
     
     # Initialize lists to store lap data
     lapTable = []
@@ -642,7 +662,9 @@ def extract_lap_data_from_fit(fit_file_path, startWithWktStep):
             elif lap_data_field.name == 'max_heart_rate': lapData['maxHR'] = lap_data_field.value
             elif lap_data_field.name == 'max_power': lapData['maxPower'] = lap_data_field.value
             elif lap_data_field.name == 'message_index': lapData['lapNo'] = lap_data_field.value + 1
-            elif lap_data_field.name == 'start_time': lapData['timeStart'] = lap_data_field.value + timedelta(hours=TZhours)
+            elif lap_data_field.name == 'start_time': 
+                lapData['timeStart'] = lap_data_field.value# + timedelta(hours=TZhours)
+                lapData['timeStart'] = pytz.utc.localize(lapData['timeStart']).astimezone(timeZone)
             elif lap_data_field.name == 'total_timer_time': lapData['lapTime'] = int(round(lap_data_field.value,0))
             elif lap_data_field.name == 'total_distance': lapData['lapDist'] = lap_data_field.value
             #if LapIx <10: print (LapIx, lap_data_field.name, lap_data_field.value)
@@ -654,7 +676,7 @@ def extract_lap_data_from_fit(fit_file_path, startWithWktStep):
         lapTable.append(lapData)
 
     # FIX for non workout lap data, every other lap rest
-    if lapTable[0]['wktStepType'] == 'active' and LapIx > 1:
+    if lapTable[0]['wktStepType'] == 'active' and LapIx > 1 and not startWithWktStep == 'allActive':
         if lapTable[1]['wktStepType'] == 'active':
             print('======= NO WORKOUT STEPS, using: ' + startWithWktStep)
             if startWithWktStep == 'WarmupThenActive':
@@ -998,15 +1020,15 @@ def saveSpinBikeLapTable_to_txt():
     
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
-
+    outLapTxt_file.write (fileInfo)
     # Destination and Source data
     print('-----------')
     print(str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTime))
     outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
-    print('Src: ' + fit_file_path)
-    outLapTxt_file.write ('Src: ' + fit_file_path +'\n')
+    print('Src: ' + fitFile_path_name)
+    outLapTxt_file.write ('Src: ' + fitFile_path_name +'\n')
 
     # ACTIVE LAPS 
     print('-----------')
@@ -1085,6 +1107,7 @@ def saveGymBikeLapTable_to_txt():
 
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
+    outLapTxt_file.write (fileInfo)
 
     # Destination and Source data
     print('-----------')
@@ -1092,10 +1115,10 @@ def saveGymBikeLapTable_to_txt():
     outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
-    print('Src: ' + fit_file_path)
-    outLapTxt_file.write ('Src: ' + fit_file_path +'\n')
-    print('Src: ' + lap_txtFile_path)
-    outLapTxt_file.write ('Src: ' + lap_txtFile_path + '\n')
+    print('Src: ' + fitFile_path_name)
+    outLapTxt_file.write ('Src: ' + fitFile_path_name +'\n')
+    print('Src: ' + manualLapsFileName)
+    outLapTxt_file.write ('Src: ' + manualLapsFileName + '\n')
 
     # ACTIVE LAPS 
     print('-----------')
@@ -1170,6 +1193,7 @@ def saveCTLapTable_to_txt():
 
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
+    outLapTxt_file.write (fileInfo)
 
     # Destination and Source data
     print('-----------')
@@ -1177,10 +1201,10 @@ def saveCTLapTable_to_txt():
     outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
-    print('Src: ' + fit_file_path)
-    outLapTxt_file.write ('Src: ' + fit_file_path +'\n')
-    print('Src: ' + lap_txtFile_path)
-    outLapTxt_file.write ('Src: ' + lap_txtFile_path + '\n')
+    print('Src: ' + fitFile_path_name)
+    outLapTxt_file.write ('Src: ' + fitFile_path_name +'\n')
+    print('Src: ' + manualLapsFileName)
+    outLapTxt_file.write ('Src: ' + manualLapsFileName + '\n')
 
     # ACTIVE LAPS 
     print('-----------')
@@ -1262,6 +1286,7 @@ def saveSkiErgLapTable_to_txt():
         
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
+    outLapTxt_file.write (fileInfo)
 
     # Destination and Source data
     print('-----------')
@@ -1271,10 +1296,10 @@ def saveSkiErgLapTable_to_txt():
     outLapTxt_file.write ('Dest: ' + outNewRecordCSV_file_path +'\n')
     print('Dest: ' + outNewRecordCSV_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
-    print('Src: ' + fit_file_path)
-    outLapTxt_file.write ('Src: ' + fit_file_path +'\n')
-    print('Src: ' + C2fit_file_path)
-    outLapTxt_file.write ('Src: ' + C2fit_file_path + '\n')
+    print('Src: ' + fitFile_path_name)
+    outLapTxt_file.write ('Src: ' + fitFile_path_name +'\n')
+    print('Src: ' + C2fitFile_path_name)
+    outLapTxt_file.write ('Src: ' + C2fitFile_path_name + '\n')
 
     # ACTIVE LAPS 
     print('-----------')
@@ -1373,6 +1398,7 @@ def saveRunLapTable_to_txt():
     
     # TEXT file with lap info to be used for analyzing
     outLapTxt_file = open(outLapTxt_file_path, 'w')
+    outLapTxt_file.write (fileInfo)
 
     # Destination and Source data
     print('-----------')
@@ -1380,8 +1406,8 @@ def saveRunLapTable_to_txt():
     outLapTxt_file.write (str(timeFirstRecord) + ', ' + activityType + ', ' + m2km_1decStr(totDist) + 'km, ' + sec2minSec_shStr(totTime) +'\n')
     print('Dest: ' + outLapTxt_file_path)
     outLapTxt_file.write ('Dest: ' + outLapTxt_file_path +'\n')
-    print('Src: ' + fit_file_path)
-    outLapTxt_file.write ('Src: ' + fit_file_path +'\n')
+    print('Src: ' + fitFile_path_name)
+    outLapTxt_file.write ('Src: ' + fitFile_path_name +'\n')
 
     # ACTIVE LAPS 
     print('-----------')
@@ -1450,7 +1476,7 @@ def saveRunLapTable_to_txt():
 # ================================================================
 def createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver):
     out_baseFileName = ''
-    out_baseFileName += str(timeFirstRecord).replace(':','-').replace(' ','-')
+    out_baseFileName += str(timeFirstRecord.replace(tzinfo=None)).replace(':','-').replace(' ','-')
     out_baseFileName += '-' + actName
     if not totDist in [0, '', None]: out_baseFileName += '-' + m2km_1decStr(totDist) + 'km'
     out_baseFileName += '-' + sec2minSec_shStr(totTime).replace(':','.') + 'min'
@@ -1462,32 +1488,42 @@ def createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, prod
 # ================================================================
 # RENAME FIT
 # ================================================================
-def renameFitFile(fit_file_path, newFitFileName):
-    if fit_file_path.lower() != newFitFileName.lower():
+def renameFitFile(fitFile_path_name, newFitFileName):
+    if fitFile_path_name.lower() != newFitFileName.lower():
         if os.path.exists(newFitFileName):
             os.remove(newFitFileName)
-        os.rename(fit_file_path, newFitFileName)
+        os.rename(fitFile_path_name, newFitFileName)
     return
 
 # ================================================================
 # REMOVE ZIP
 # ================================================================
-def removeZipFile(ext, zip_file_path):
+def removeZipFile(ext, zipFile_path_name):
     if ext == '.zip':
-        os.remove(zip_file_path)
+        os.remove(zipFile_path_name)
     return
 
 # ================================================================
 # OUT FILE PATHS
 # ================================================================
-def outFilePaths(pathPrefix, pathDL, out_baseFileName):
+def outFilePaths(pathPrefixFit, out_baseFileName):
     # TEXT FILE
-    outLapTxt_file_path = pathPrefix + pathDL + out_baseFileName + '-LapTables.txt'
+    outLapTxt_file_path = pathPrefixFit + out_baseFileName + '-LapTables.txt'
     # CSV FILE
-    outNewRecordCSV_file_path = pathPrefix + pathDL + out_baseFileName + '-newDistCadPower.csv'
+    outNewRecordCSV_file_path = pathPrefixFit + out_baseFileName + '-newDistCadPower.csv'
     # NEW FIT FILE NAME
-    newFitFileName = pathPrefix + pathDL + out_baseFileName
-    if doRename:
+    newFitFileName = pathPrefixFit + out_baseFileName
+    if out_baseFileName.find('FFRTexpSecShift') >= 0:
+        newFitFileName += '-FFRTexpSecShift.fit'
+    if out_baseFileName.find('sec.fit') >= 0:
+        newFitFileName += '-FFRTexpSecShift.fit'
+    elif out_baseFileName.find('FFRTexp') >= 0:
+        newFitFileName += '-FFRTexp.fit'
+    elif out_baseFileName.find('fixed') >= 0:
+        newFitFileName += '-FFRTexp.fit'
+    elif out_baseFileName.find('analyzed') >= 0:
+        newFitFileName += '-analyzed.fit'
+    elif doRename:
         newFitFileName += '-renamed.fit' 
     else:
         newFitFileName += '-analyzed.fit'
@@ -1508,27 +1544,37 @@ device = 'pc1drv'
 #device = 'm'
 
 # Hours to add to FIT file TIME
-TZhours = 2
+#TZhours = 2
+timeZone = pytz.timezone('Europe/Stockholm')
 
-# If no workout steps in file, then start with this, can be "WarmupThenActive" OR "WarmupAndRest"
+
+# Text that can be collected in program to be saved first in TEXT LAP FILE
+fileInfo = ''
+
+# If no workout steps in file, then start with this, can be "WarmupThenActive" OR "WarmupAndRest" OR "allActive"
 startWithWktStep = 'WarmupThenActive'    
 
 # Assign ROOT FOLDERS based on DEVICE
 if device == 'm':
-    pathPrefix = '/storage/emulated/0/'
-    pathDL = 'download/'
+    pathPrefixFit = '/storage/emulated/0/download/'
+    manualLapsPathPrefix = '/storage/emulated/0/documents/'
 elif device == 'pc':
-    pathPrefix = 'C:/users/peter/'
-    pathDL = 'downloads/'
+    pathPrefixFit = 'C:/users/peter/downloads/'
+    manualLapsPathPrefix = 'C:/users/peter/documents/'
 else:
-    pathPrefix = 'C:/Users/peter/'
-    pathDL = 'OneDrive/Dokument Peter OneDrive/Träning/ActivityFiles/Peter activities/'
+    pathPrefixFit = 'C:/Users/peter/OneDrive/Dokument Peter OneDrive/Träning/ActivityFiles/Peter activities/'
+    manualLapsPathPrefix = 'C:/users/peter/documents/'
 
 # Check if no Args mode, assign type and files here in program
 if argsCount >= 2:
     ArgsMode = True
 else:
     ArgsMode = False
+
+if argsCount >= 4:
+    fileName2 = Path(sys.argv[3]).name
+    dir2 = Path(sys.argv[3]).parent
+    print('dir:',dir2,'file:',fileName2)
 
 # Check if TEST
 if sys.argv[1] == 'test':
@@ -1550,7 +1596,7 @@ else:
     if ArgsMode:
         activityType = sys.argv[1]
     else:
-        # NO Args mode, use config here in file
+        # NO Args mode, use fixed config below for activityType
         activityType = 'spinbike'
         #activityType = 'gymbike'
         #activityType = 'ct'
@@ -1558,92 +1604,110 @@ else:
         #activityType = 'run'
 
 # Assign FIT File and other TEST files
-if test:
-    pathDL += 'TESTfiles/'
-    if activityType == 'spinbike':
-        fit_file_path = pathPrefix + pathDL + '2024-09-26-14-27-04-SpinBike-18.4km-40.06min-epix2pro-analyzed.fit'
-    elif activityType == 'gymbike':
-        fit_file_path = pathPrefix + pathDL + '2024-09-14-07-46-48-GymBike-31.2km-60.43min-Bike_5-4-3-2-1-1-2-3-4-5-epix2pro-analyzed.fit'
-        lap_txtFile_path = pathPrefix + pathDL + 'testManualLaps-gymbike.txt'
-        file_exist = os.path.isfile(lap_txtFile_path)
-        if not file_exist:
-            print('---------------- TEST Lap txtFile does not exist! ', lap_txtFile_path)
-            exit()
-    elif activityType == 'ct':
-        fit_file_path = pathPrefix + pathDL + '2024-10-06-09-31-25-CT-4.0km-20.11min-epix2pro-analyzed.fit'
-        lap_txtFile_path = pathPrefix + pathDL + 'testManualLaps-ct.txt'
-        file_exist = os.path.isfile(lap_txtFile_path)
-        if not file_exist:
-            print('---------------- TEST Lap txtFile does not exist! ', lap_txtFile_path)
-            exit()
-    elif activityType == 'skierg':
-        fit_file_path = pathPrefix + pathDL + '2024-09-30-14-48-09-SkiErg-11.0km-61.04min-Bike_4x3-2-1min-epix2pro-analyzed.fit'
-        C2fit_file_path = pathPrefix + pathDL + '2024-09-30-14-46-00-SkiErg-11.0km-61min-concept2-analyzed.fit'
-        hasC2fitFile = True
-        file_exist = os.path.isfile(C2fit_file_path)
-        if not file_exist:
-            print('---------------- TEST C2 FIT File does not exist!')
-            exit()
-    elif activityType == 'run':
-        fit_file_path = pathPrefix + pathDL + '2024-08-02-15-27-43-Trail_Run_Interval-5.4km-61.23min-epix2pro-analyzed.fit'
-    # Check if FIT file EXIST
-    file_exist = os.path.isfile(fit_file_path)
-    if not file_exist:
-        print('---------------- TEST Fit File does not exist!')
-        exit()
-elif doRename:
-    folder = pathPrefix + pathDL
+if doRename:
+    folder = pathPrefixFit
     filter = sys.argv[2]
-elif ArgsMode:
-    fit_file_path = pathPrefix + pathDL + sys.argv[2]
 else:
-    # NO Args mode, use config here in file
-    fit_file_path = pathPrefix + pathDL + '17090763560.zip'
+    if test:
+        pathPrefixFit += 'TESTfiles/'
+        if activityType == 'spinbike':
+            fitFile_path_name = pathPrefixFit + '2024-09-26-16-27-04-SpinBike-18.4km-40.06min-epix2pro-v18.15-analyzed.fit'
+        elif activityType == 'gymbike':
+            fitFile_path_name = pathPrefixFit + '2024-09-14-09-46-48-GymBike-31.2km-60.43min-Bike_5-4-3-2-1-1-2-3-4-5-epix2pro-v18.14-analyzed.fit'
+            manualLapsFileName = pathPrefixFit + 'testManualLaps-gymbike.txt'
+            file_exist = os.path.isfile(manualLapsFileName)
+            if not file_exist:
+                print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
+                exit()
+        elif activityType == 'ct':
+            fitFile_path_name = pathPrefixFit + '2024-10-06-11-31-25-Elliptical-4.0km-20.11min-epix2pro-v18.16-analyzed.fit'
+            manualLapsFileName = pathPrefixFit + 'testManualLaps-ct.txt'
+            file_exist = os.path.isfile(manualLapsFileName)
+            if not file_exist:
+                print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
+                exit()
+        elif activityType == 'skierg':
+            fitFile_path_name = pathPrefixFit + '2024-09-30-16-48-09-SkiErg-11.0km-61.04min-Bike_4x3-2-1min-epix2pro-v18.15-analyzed.fit'
+            C2fitFile_path_name = pathPrefixFit + '2024-09-30-16-46-00-SkiErg-11.0km-61min-concept2-v1.0-analyzed.fit'
+            hasC2fitFile = True
+            file_exist = os.path.isfile(C2fitFile_path_name)
+            if not file_exist:
+                print('---------------- TEST C2 FIT File does not exist!')
+                exit()
+        elif activityType == 'run':
+            fitFile_path_name = pathPrefixFit + '2024-08-02-17-27-43-Trail_Run_Interval-5.4km-61.23min-epix2pro-v18.1-analyzed.fit'
+        # Check if FIT file EXIST
+        #file_exist = os.path.isfile(fitFile_path_name)
+        #if not file_exist:
+        #    print('---------------- TEST Fit File does not exist!')
+        #    exit()
+    else: # NOT TEST, assign a FILE  
+        if ArgsMode:
+            fileNameTemp = Path(sys.argv[2]).name
+            dirTemp = Path(sys.argv[2]).parent
+            print('dir:',dirTemp,'file:',fileNameTemp)
+            if dirTemp.exists:
+                pathPrefixFit = str(dirTemp) + '/'
+                fitFile_path_name = pathPrefixFit + fileNameTemp
+            else:
+                fitFile_path_name = pathPrefixFit + sys.argv[2]
+            # NO Args mode, use fixed file name below
+        else:
+            fitFile_path_name = pathPrefixFit + '17090763560.zip'
 
-if not doRename:
     # UNZIP if ZIP file and reassign FIT file
-    fileName = pathlib.Path(fit_file_path).stem
-    ext = pathlib.Path(fit_file_path).suffix
+    fileName = Path(fitFile_path_name).stem
+    ext = Path(fitFile_path_name).suffix
 
-    zip_file_path = fit_file_path
+    print('fitfile:'+fitFile_path_name)
+    print('Path:'+pathPrefixFit+'\nFilename:'+fileName+'\nExt:'+ext)
+
+    zipFile_path_name = fitFile_path_name
     if ext =='.zip':
-        file_exist = os.path.isfile(zip_file_path)
+        file_exist = os.path.isfile(zipFile_path_name)
         if not file_exist:
             print('---------------- ZIP File does not exist!')
             exit()
-        zip = ZipFile(zip_file_path)
-        zip.extractall(pathPrefix + pathDL)
+        zip = ZipFile(zipFile_path_name)
+        zip.extractall(pathPrefixFit)
         zip.close()
-        fit_file_path = pathPrefix + pathDL + fileName + '_ACTIVITY.fit'
+        fitFile_path_name = pathPrefixFit + fileName + '_ACTIVITY.fit'
 
     # Check if FIT file EXIST
-    file_exist = os.path.isfile(fit_file_path)
+    file_exist = os.path.isfile(fitFile_path_name)
     if not file_exist:
         print('---------------- Fit File does not exist!')
         exit()
 
-    # ================================================================
     # Extract SESSION data and show from org FIT file
+    # AUTO and INFO kommand
     # ================================================================
-    product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName = extract_session_data_from_fit(fit_file_path)
+    product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName, fileInfo = extract_session_data_from_fit(fitFile_path_name, fileInfo)
 
-    # If INFO stop here
+# ================================================================
+# ================================================================
+# INFO
+# ================================================================
     if activityType == 'info':
         exit()
 
-    # Assign activity type if AUTO mode
+# ================================================================
+# ================================================================
+# AUTO
+# ================================================================
     activityType = activityType.lower()
     if activityType == 'auto':
+        if actName.lower().find('skierg') >= 0: activityType = 'skierg'
         if actName.lower().find('spin') >= 0: activityType = 'spinbike'
         if actName.lower().find('cykel inne') >= 0: activityType = 'gymbike'
         if actName.lower().find('gymbike') >= 0: activityType = 'gymbike'
         if actName.lower().find('ellipt') >= 0 : activityType = 'ct'
         if actName.lower().find('ct') >= 0: activityType = 'ct'
-        if actName.lower().find('skierg') >= 0: activityType = 'skierg'
+        if actName.lower().find('löpband') >= 0 : activityType = 'ct'
         if actName.lower().find('run') >= 0: activityType = 'run'
 
 # CHECK if activity type is CORRECT
-if activityType in ['spinbike','gymbike','ct','elliptical','skierg','run','rename']:
+if activityType in ['spinbike','gymbike','ct','skierg','run','rename']:
     print('Using activityType: ' + activityType)
 else:
     print('---------------Wrong activityType! ', activityType, actName)
@@ -1660,41 +1724,42 @@ if activityType == 'rename':
     files = os.listdir(folder)
 
     for file in files:
-        if file.find(filter) >= 0 and (file.find('.fit') or file.find('.zip')): 
-            fit_file_path = folder + file
+        if file.find(filter) >= 0 and (file.find('.fit') >= 0 or file.find('.zip') >= 0): 
+            print(file)
+            fitFile_path_name = folder + file
 
             # UNZIP if ZIP file and reassign FIT file
-            fileName = pathlib.Path(fit_file_path).stem
-            ext = pathlib.Path(fit_file_path).suffix
+            fileName = Path(fitFile_path_name).stem
+            ext = Path(fitFile_path_name).suffix
 
-            zip_file_path = fit_file_path
+            zipFile_path_name = fitFile_path_name
             if ext =='.zip':
-                file_exist = os.path.isfile(zip_file_path)
+                file_exist = os.path.isfile(zipFile_path_name)
                 if not file_exist:
                     print('---------------- ZIP File does not exist!')
                     exit()
-                zip = ZipFile(zip_file_path)
-                zip.extractall(pathPrefix + pathDL)
+                zip = ZipFile(zipFile_path_name)
+                zip.extractall(pathPrefixFit)
                 zip.close()
-                fit_file_path = pathPrefix + pathDL + fileName + '_ACTIVITY.fit'
+                fitFile_path_name = pathPrefixFit + fileName + '_ACTIVITY.fit'
 
             # Check if FIT file EXIST
-            file_exist = os.path.isfile(fit_file_path)
+            file_exist = os.path.isfile(fitFile_path_name)
             if not file_exist:
                 print('---------------- Fit File does not exist!')
                 exit()
             
             # Extract SESSION data and show from org FIT file
             # ================================================================
-            product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName = extract_session_data_from_fit(fit_file_path)
+            product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName, fileInfo = extract_session_data_from_fit(fitFile_path_name, fileInfo)
 
             out_baseFileName = createBaseFileName(startTime, actName, totDist, totTime, wktName, product, SWver)
-            outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
-            print ('src:', fit_file_path)
+            outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
+            print ('src:', fitFile_path_name)
             print ('dst:', newFitFileName)
 
-            renameFitFile(fit_file_path, newFitFileName)
-            removeZipFile(ext, zip_file_path)
+            renameFitFile(fitFile_path_name, newFitFileName)
+            removeZipFile(ext, zipFile_path_name)
 
     print('=============== RENAMING END ================')
     exit()
@@ -1712,72 +1777,66 @@ if activityType == 'skierg':
         if ArgsMode:
             if argsCount >= 4:
                 hasC2fitFile = True
-                C2fit_file_path = pathPrefix + pathDL + sys.argv[3]
+                C2fitFile_path_name = pathPrefixFit + sys.argv[3]
             else:
-                hasC2fitFile = False
+                hasC2fitFile = False # Probably already analyzed
         else:
-            # NO Args MODE, assign file here in program
-            C2fit_file_path = pathPrefix + pathDL + '240927-concept2-logbook-workout-92357194.fit'
+            # NO Args MODE, assign fixed file below
+            C2fitFile_path_name = pathPrefixFit + '240927-concept2-logbook-workout-92357194.fit'
             hasC2fitFile = True
-        file_exist = os.path.isfile(C2fit_file_path)
+        file_exist = os.path.isfile(C2fitFile_path_name)
         if not file_exist:
             print('---------------- C2 FIT File does not exist!')
             exit()
 
     if hasC2fitFile:
-        # ================================================================
         # Extract SESSION data and show from C2 FIT file
         # ================================================================
-        C2product, C2SWver, C2totDist, C2avgSpeed, C2lapCountFit, C2sport, C2startTime, C2subSport, C2totTime, C2actName, C2wktName = extract_session_data_from_fit(C2fit_file_path)
+        C2product, C2SWver, C2totDist, C2avgSpeed, C2lapCountFit, C2sport, C2startTime, C2subSport, C2totTime, C2actName, C2wktName, fileInfo = extract_session_data_from_fit(C2fitFile_path_name, fileInfo)
 
-        # ================================================================
         # Extract RECORD data from C2 FIT file
         # ================================================================
-        C2recordTable, C2timeFirstRecord, C2timeLastRecord, C2totDist = extract_record_data_from_C2fit(C2fit_file_path)
+        C2recordTable, C2timeFirstRecord, C2timeLastRecord, C2totDist = extract_record_data_from_C2fit(C2fitFile_path_name)
     
-    # ================================================================
     # Extract RECORD data from FIT file
     # ================================================================
-    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fit_file_path)
+    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
 
     if hasC2fitFile:
         print('date from C2 and watch file: ', C2timeFirstRecord, timeFirstRecord)
         # EXIT if files do not match date
-        if C2timeFirstRecord.date() != timeFirstRecord.date(): exit()
+        if C2timeFirstRecord.date() != timeFirstRecord.date(): 
+            print('====================== NOT same DATE on FIT and C2FIT')
+            exit()
 
-    # ================================================================
     # Extract LAP data from FIT file
     # ================================================================
-    lapTable = extract_lap_data_from_fit(fit_file_path, startWithWktStep)
+    lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
     if hasC2fitFile:
-        # ================================================================
         # Merge C2 RECORDS with recordTable
         # ================================================================
         recordTable = merge_C2records_with_recordTable(recordTable, C2recordTable)
 
-    # ================================================================
     # Calc LAP TIME END in lapTable
     # ================================================================
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
 
-    # ================================================================
     # Calc LAP DATA fron recordTable
     # ================================================================
     lapTable, recordTable, totDistLastRecord = calc_lapData_from_recordTable(recordTable, lapTable)
     if totDist in [0, None]: totDist = totDistLastRecord
 
-    # ================================================================
     # Calc AVG DATA in lapTable
     # ================================================================
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
     if hasC2fitFile:
         C2out_baseFileName = createBaseFileName(C2timeFirstRecord, actName, C2totDist, C2totTime, C2wktName, C2product, C2SWver)
-        C2outLapTxt_file_path, C2outNewRecordCSV_file_path, C2newFitFileName = outFilePaths(pathPrefix, pathDL, C2out_baseFileName)
+        C2outLapTxt_file_path, C2outNewRecordCSV_file_path, C2newFitFileName = outFilePaths(pathPrefixFit, C2out_baseFileName)
     
     out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
-    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
+    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
 
     if test:
         print('================ TEST =================')
@@ -1785,43 +1844,45 @@ if activityType == 'skierg':
     saveSkiErgLapTable_to_txt()
 
     if hasC2fitFile:
-        renameFitFile(C2fit_file_path, C2newFitFileName)
+        renameFitFile(C2fitFile_path_name, C2newFitFileName)
 
 
 # ================================================================
 # ================================================================
 # GYMBIKE & CT
 # ================================================================
-if activityType in ['gymbike', 'ct', 'elliptical']:
+if activityType in ['gymbike', 'ct']:
 
-    # Assign LAP TEXT file if NOT test
-    # ================================================================
-#    product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName = extract_session_data_from_fit(fit_file_path)
-
+    needNew_inLapTxtFileName = False
     if not test:
         if argsCount >= 4:
             if sys.argv[3] == 'x':
-                lap_txtFile_path = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
-                lap_txtFile_path = pathPrefix + pathDL + lap_txtFile_path + '-LevelTotDist.txt'
+                manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
+                manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
             else:
-                lap_txtFile_path = sys.argv[3]
-                lap_txtFile_path = pathPrefix + pathDL + lap_txtFile_path
+                manualLapsFileName = sys.argv[3]
+                manualLapsFileName = pathPrefixFit + manualLapsFileName
         else:
-            lap_txtFile_path = pathPrefix + 'documents/indoorBikeLapsLatest.txt'
+            manualLapsFileName = manualLapsPathPrefix + 'indoorBikeLapsLatest.txt'
+            needNew_inLapTxtFileName = True
 
-        file_exist = os.path.isfile(lap_txtFile_path)
+        file_exist = os.path.isfile(manualLapsFileName)
         if not file_exist:
-            print('---------------- Lap txtFile does not exist! ', lap_txtFile_path)
+            print('---------------- Lap txtFile does not exist! ', manualLapsFileName)
             exit()
 
     # Extract LAP data from TXT FIT file
     # ================================================================
-    lapFromTxtTbl, lapCountTxt, totDistTxtFile = extract_lap_data_from_txt(lap_txtFile_path)
+    lapFromTxtTbl, lapCountTxt, totDistTxtFile = extract_lap_data_from_txt(manualLapsFileName)
     if totDist in [0, None]: totDist = totDistTxtFile
 
-    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fit_file_path)
-    lapTable = extract_lap_data_from_fit(fit_file_path, startWithWktStep)
+    # Extract RECORD and LAP data from TXT FIT file
+    # ================================================================
+    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
+    lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
+    # Check that the no of laps are equal in TXT and FIT
+    # ================================================================
     print('lapCount in TXT and FIT files: ', lapCountTxt, lapCountFit)
     if lapCountTxt != lapCountFit: exit()
 
@@ -1833,20 +1894,23 @@ if activityType in ['gymbike', 'ct', 'elliptical']:
     if totDist in [0, None]: totDist = totDistLastRecord
     
     out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
-    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
+    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
 
     recordTable, lapTable = calc_dist_speed_basedOn_cadence(recordTable, lapTable)
 
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
     # LAP DISTANCES to be used if script need to be run again
-    outLapTxt_file = open(lap_txtFile_path, 'w')
+    if needNew_inLapTxtFileName:   # 
+        manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
+        manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
+    inLapTxt_file = open(manualLapsFileName, 'w')
     for lapData in lapTable:
         lapTxtLine = ''
         lapTxtLine += str(lapData['level'])
         lapTxtLine += ' '
         lapTxtLine += str(int(lapData['totDist']/10))
-        outLapTxt_file.write (lapTxtLine + '\n')
+        inLapTxt_file.write (lapTxtLine + '\n')
 
     if test:
         print('================ TEST =================')
@@ -1861,9 +1925,9 @@ if activityType in ['gymbike', 'ct', 'elliptical']:
 # SPINBIKE
 # ================================================================
 if activityType == 'spinbike':
-    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fit_file_path)
+    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
     
-    lapTable = extract_lap_data_from_fit(fit_file_path, startWithWktStep)
+    lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
     
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
     
@@ -1873,7 +1937,7 @@ if activityType == 'spinbike':
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
     out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
-    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
+    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
 
     if test:
         print('================ TEST =================')
@@ -1885,9 +1949,9 @@ if activityType == 'spinbike':
 # RUN
 # ================================================================
 if activityType == 'run':
-    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fit_file_path)
+    recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
 
-    lapTable = extract_lap_data_from_fit(fit_file_path, startWithWktStep)
+    lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
 
@@ -1897,7 +1961,7 @@ if activityType == 'run':
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
     out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
-    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefix, pathDL, out_baseFileName)
+    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
 
     if test:
         print('================ TEST =================')
@@ -1909,12 +1973,12 @@ if activityType == 'run':
 # ================================================================
 # THE END
 # ================================================================
-renameFitFile(fit_file_path, newFitFileName)
-removeZipFile(ext, zip_file_path)
+renameFitFile(fitFile_path_name, newFitFileName)
+removeZipFile(ext, zipFile_path_name)
 
 print('-----THE END', datetime.now())
 if test:
-    fileTemplate = pathPrefix + pathDL + out_baseFileName + '-LapTables - copy.txt'
+    fileTemplate = pathPrefixFit + out_baseFileName + '-LapTables - copy.txt'
     if os.path.exists(fileTemplate):
         result = filecmp.cmp(fileTemplate, outLapTxt_file_path, shallow=False)
         if result: print('==TEST OK==, LapTables files match, test =', result)
