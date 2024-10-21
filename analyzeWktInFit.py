@@ -671,6 +671,7 @@ def extract_lap_data_from_fit(fitFile_path_name, startWithWktStep):
         #print('---------------wktStep:',LapIx, lapData['wktStepType'])
         if lapData['wktStepType'] == 4: lapData['wktStepType'] = 'recover'
         if lapData['wktStepType'] == 5: lapData['wktStepType'] = 'active' # according to SDK, 5=interval
+        if lapData['wktStepType'] == None: lapData['wktStepType'] = 'active'
         LapIx += 1
         #print('start:', lapData['timeStart'])
         lapTable.append(lapData)
@@ -1539,8 +1540,8 @@ def outFilePaths(pathPrefixFit, out_baseFileName):
 argsCount = len(sys.argv)
 print('No of args:' + str(argsCount) + str(sys.argv))
 
-#device = 'pc'
-device = 'pc1drv'
+device = 'pc'
+#device = 'pc1drv'
 #device = 'm'
 
 # Hours to add to FIT file TIME
@@ -1557,36 +1558,33 @@ startWithWktStep = 'WarmupThenActive'
 # Assign ROOT FOLDERS based on DEVICE
 if device == 'm':
     pathPrefixFit = '/storage/emulated/0/download/'
-    manualLapsPathPrefix = '/storage/emulated/0/documents/'
+    manualLapsPathPrefix = '/storage/emulated/0/download/'
 elif device == 'pc':
     pathPrefixFit = 'C:/users/peter/downloads/'
-    manualLapsPathPrefix = 'C:/users/peter/documents/'
+    manualLapsPathPrefix = 'C:/users/peter/downloads/'
 else:
     pathPrefixFit = 'C:/Users/peter/OneDrive/Dokument Peter OneDrive/Träning/ActivityFiles/Peter activities/'
-    manualLapsPathPrefix = 'C:/users/peter/documents/'
+    manualLapsPathPrefix = 'C:/Users/peter/OneDrive/Dokument Peter OneDrive/Träning/ActivityFiles/Peter activities/'
 
-# Check if no Args mode, assign type and files here in program
-if argsCount >= 2:
-    ArgsMode = True
-else:
+if argsCount <= 1:
+    # Check if no Args mode, assign type and files here in program
     ArgsMode = False
-
-if argsCount >= 4:
-    fileName2 = Path(sys.argv[3]).name
-    dir2 = Path(sys.argv[3]).parent
-    print('dir:',dir2,'file:',fileName2)
-
-# Check if TEST
-if sys.argv[1] == 'test':
-    test = True
-else:
     test = False
-
-# Check if RENAME
-if sys.argv[1] == 'rename':
-    doRename = True
-else:
     doRename = False
+else:
+    ArgsMode = True
+
+    # Check if TEST
+    if sys.argv[1] == 'test':
+        test = True
+    else:
+        test = False
+
+    # Check if RENAME
+    if sys.argv[1] == 'rename':
+        doRename = True
+    else:
+        doRename = False
 
 # Decide and Assign activityType
 if test:
@@ -1597,71 +1595,80 @@ else:
         activityType = sys.argv[1]
     else:
         # NO Args mode, use fixed config below for activityType
-        activityType = 'spinbike'
+        #activityType = 'spinbike'
         #activityType = 'gymbike'
-        #activityType = 'ct'
+        activityType = 'ct'
         #activityType = 'skierg'
         #activityType = 'run'
 
 # Assign FIT File and other TEST files
-if doRename:
-    folder = pathPrefixFit
-    filter = sys.argv[2]
-else:
-    if test:
-        pathPrefixFit += 'TESTfiles/'
-        if activityType == 'spinbike':
-            fitFile_path_name = pathPrefixFit + '2024-09-26-16-27-04-SpinBike-18.4km-40.06min-epix2pro-v18.15-analyzed.fit'
-        elif activityType == 'gymbike':
-            fitFile_path_name = pathPrefixFit + '2024-09-14-09-46-48-GymBike-31.2km-60.43min-Bike_5-4-3-2-1-1-2-3-4-5-epix2pro-v18.14-analyzed.fit'
-            manualLapsFileName = pathPrefixFit + 'testManualLaps-gymbike.txt'
-            file_exist = os.path.isfile(manualLapsFileName)
-            if not file_exist:
-                print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
-                exit()
-        elif activityType == 'ct':
-            fitFile_path_name = pathPrefixFit + '2024-10-06-11-31-25-Elliptical-4.0km-20.11min-epix2pro-v18.16-analyzed.fit'
-            manualLapsFileName = pathPrefixFit + 'testManualLaps-ct.txt'
-            file_exist = os.path.isfile(manualLapsFileName)
-            if not file_exist:
-                print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
-                exit()
-        elif activityType == 'skierg':
-            fitFile_path_name = pathPrefixFit + '2024-09-30-16-48-09-SkiErg-11.0km-61.04min-Bike_4x3-2-1min-epix2pro-v18.15-analyzed.fit'
-            C2fitFile_path_name = pathPrefixFit + '2024-09-30-16-46-00-SkiErg-11.0km-61min-concept2-v1.0-analyzed.fit'
-            hasC2fitFile = True
-            file_exist = os.path.isfile(C2fitFile_path_name)
-            if not file_exist:
-                print('---------------- TEST C2 FIT File does not exist!')
-                exit()
-        elif activityType == 'run':
-            fitFile_path_name = pathPrefixFit + '2024-08-02-17-27-43-Trail_Run_Interval-5.4km-61.23min-epix2pro-v18.1-analyzed.fit'
-        # Check if FIT file EXIST
-        #file_exist = os.path.isfile(fitFile_path_name)
-        #if not file_exist:
-        #    print('---------------- TEST Fit File does not exist!')
-        #    exit()
-    else: # NOT TEST, assign a FILE  
-        if ArgsMode:
-            fileNameTemp = Path(sys.argv[2]).name
-            dirTemp = Path(sys.argv[2]).parent
-            print('dir:',dirTemp,'file:',fileNameTemp)
-            if dirTemp.exists:
-                pathPrefixFit = str(dirTemp) + '/'
-                fitFile_path_name = pathPrefixFit + fileNameTemp
-            else:
-                fitFile_path_name = pathPrefixFit + sys.argv[2]
-            # NO Args mode, use fixed file name below
+#if doRename:
+#    folder = pathPrefixFit
+#    filter = sys.argv[2]
+#else:
+if test:
+    pathPrefixFit += 'TESTfiles/'
+    if activityType == 'gymbike':
+        fitFile_path_name = pathPrefixFit + '2024-09-14-09-46-48-GymBike-31.2km-60.43min-Bike_5-4-3-2-1-1-2-3-4-5-epix2pro-v18.14-analyzed.fit'
+        manualLapsFileName = pathPrefixFit + 'testManualLaps-gymbike.txt'
+        file_exist = os.path.isfile(manualLapsFileName)
+        if not file_exist:
+            print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
+            exit()
+    elif activityType == 'ct':
+        fitFile_path_name = pathPrefixFit + '2024-10-06-11-31-25-Elliptical-4.0km-20.11min-epix2pro-v18.16-analyzed.fit'
+        manualLapsFileName = pathPrefixFit + 'testManualLaps-ct.txt'
+        file_exist = os.path.isfile(manualLapsFileName)
+        if not file_exist:
+            print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
+            exit()
+    elif activityType == 'skierg':
+        fitFile_path_name = pathPrefixFit + '2024-09-30-16-48-09-SkiErg-11.0km-61.04min-Bike_4x3-2-1min-epix2pro-v18.15-analyzed.fit'
+        C2fitFile_path_name = pathPrefixFit + '2024-09-30-16-46-00-SkiErg-11.0km-61min-concept2-v1.0-analyzed.fit'
+        hasC2fitFile = True
+        file_exist = os.path.isfile(C2fitFile_path_name)
+        if not file_exist:
+            print('---------------- TEST C2 FIT File does not exist!')
+            exit()
+    elif activityType == 'spinbike':
+        fitFile_path_name = pathPrefixFit + '2024-09-26-16-27-04-SpinBike-18.4km-40.06min-epix2pro-v18.15-analyzed.fit'
+    elif activityType == 'run':
+        fitFile_path_name = pathPrefixFit + '2024-08-02-17-27-43-Trail_Run_Interval-5.4km-61.23min-epix2pro-v18.1-analyzed.fit'
+    # Check if FIT file EXIST
+    #file_exist = os.path.isfile(fitFile_path_name)
+    #if not file_exist:
+    #    print('---------------- TEST Fit File does not exist!')
+    #    exit()
+else: # NOT TEST, assign a FILE  
+    if ArgsMode:
+        fileNameTemp = Path(sys.argv[2]).name
+        dirTemp = Path(sys.argv[2]).parent
+        print('dir:',dirTemp,'file:',fileNameTemp)
+        # Check if PATH is included in argument, for instance if opend from file explorer
+        # ----------------------------------------------------------------------"
+        print(pathPrefixFit)
+        if dirTemp.is_absolute():
+            # FULL PATH - argument
+            # --------------
+            pathPrefixFit = str(dirTemp).replace('\\','/') + '/'
+            fitFile_path_name = pathPrefixFit + fileNameTemp
+            print('dirTemp exists!')
         else:
-            fitFile_path_name = pathPrefixFit + '17090763560.zip'
+            # FILE only - argument
+            # --------------
+            fitFile_path_name = pathPrefixFit + sys.argv[2]
+    else:
+        # NO Args mode, use fixed file name below
+        fitFile_path_name = pathPrefixFit + '2024-10-06-11-31-25-Elliptical-4.0km-20.11min-epix2pro-v18.16-analyzed.fit'
 
-    # UNZIP if ZIP file and reassign FIT file
-    fileName = Path(fitFile_path_name).stem
-    ext = Path(fitFile_path_name).suffix
+# UNZIP if ZIP file and reassign FIT file
+fileName = Path(fitFile_path_name).stem
+ext = Path(fitFile_path_name).suffix
 
-    print('fitfile:'+fitFile_path_name)
-    print('Path:'+pathPrefixFit+'\nFilename:'+fileName+'\nExt:'+ext)
+print('fitfile:'+fitFile_path_name)
+print('Path:'+pathPrefixFit+'\nFilename:'+fileName+'\nExt:'+ext)
 
+if not doRename:
     zipFile_path_name = fitFile_path_name
     if ext =='.zip':
         file_exist = os.path.isfile(zipFile_path_name)
@@ -1676,18 +1683,19 @@ else:
     # Check if FIT file EXIST
     file_exist = os.path.isfile(fitFile_path_name)
     if not file_exist:
-        print('---------------- Fit File does not exist!')
+        print('---------------- Fit File does not exist! : ' + fitFile_path_name)
         exit()
-
+    #print('---------------- Fit File DOES exist! : ' + fitFile_path_name)
+    #exit()
     # Extract SESSION data and show from org FIT file
     # AUTO and INFO kommand
     # ================================================================
     product, SWver, totDist, avgSpeed, lapCountFit, sport, startTime, subSport, totTime, actName, wktName, fileInfo = extract_session_data_from_fit(fitFile_path_name, fileInfo)
 
-# ================================================================
-# ================================================================
-# INFO
-# ================================================================
+    # ================================================================
+    # ================================================================
+    # INFO
+    # ================================================================
     if activityType == 'info':
         exit()
 
@@ -1695,16 +1703,16 @@ else:
 # ================================================================
 # AUTO
 # ================================================================
-    activityType = activityType.lower()
-    if activityType == 'auto':
-        if actName.lower().find('skierg') >= 0: activityType = 'skierg'
-        if actName.lower().find('spin') >= 0: activityType = 'spinbike'
-        if actName.lower().find('cykel inne') >= 0: activityType = 'gymbike'
-        if actName.lower().find('gymbike') >= 0: activityType = 'gymbike'
-        if actName.lower().find('ellipt') >= 0 : activityType = 'ct'
-        if actName.lower().find('ct') >= 0: activityType = 'ct'
-        if actName.lower().find('löpband') >= 0 : activityType = 'ct'
-        if actName.lower().find('run') >= 0: activityType = 'run'
+activityType = activityType.lower()
+if activityType == 'auto':
+    if actName.lower().find('skierg') >= 0: activityType = 'skierg'
+    if actName.lower().find('cykel inne') >= 0: activityType = 'gymbike'
+    if actName.lower().find('gymbike') >= 0: activityType = 'gymbike'
+    if actName.lower().find('ellipt') >= 0 : activityType = 'ct'
+    if actName.lower().find('ct') >= 0: activityType = 'ct'
+    if actName.lower().find('löpband') >= 0 : activityType = 'ct'
+    if actName.lower().find('spin') >= 0: activityType = 'spinbike'
+    if actName.lower().find('run') >= 0: activityType = 'run'
 
 # CHECK if activity type is CORRECT
 if activityType in ['spinbike','gymbike','ct','skierg','run','rename']:
@@ -1719,7 +1727,10 @@ else:
 # ================================================================
 if activityType == 'rename':
 
-    print('Rename in folder:', folder, '\n')
+    folder = pathPrefixFit
+    filter = fileName
+
+    print('Rename in folder:', folder, 'With filter:',filter,'\n')
 
     files = os.listdir(folder)
 
@@ -1770,19 +1781,53 @@ if activityType == 'rename':
 # SkiErg
 # ================================================================
 if activityType == 'skierg':
+    needNew_C2FileName = True
 
     # Assign C2 FIT file if not test
     # ================================================================
     if not test:
         if ArgsMode:
             if argsCount >= 4:
+                # has an args after, assume that is the C2 fit file
                 hasC2fitFile = True
-                C2fitFile_path_name = pathPrefixFit + sys.argv[3]
+                if sys.argv[3] in ['x','X']:
+                    # X - Argument, NOT used in SkiErg
+                    # --------------
+                    needNew_C2FileName = False
+                    print('X as second argument is not allowed with SkiErg\n----------------------------------------')
+                    exit()
+                else:
+                    #C2fitFile_path_name = pathPrefixFit + sys.argv[3]
+                    # FILE - argument
+                    # --------------
+                    fileNameTemp = Path(sys.argv[3]).name
+                    dirTemp = Path(sys.argv[3]).parent
+                    print('=====> SecondArg =====> dir:',dirTemp,'file:',fileNameTemp)
+                    # Check if PATH is included in argument, for instance if opened from file explorer
+                    # ----------------------------------------------------------------------"
+                    if dirTemp.is_absolute():
+                        # FULL PATH - argument
+                        # --------------
+                        pathPrefixFit = str(dirTemp).replace('\\','/') + '/'
+                        C2fitFile_path_name = pathPrefixFit + fileNameTemp
+                    else:
+                        # FILE only - argument
+                        # --------------
+                        C2fitFile_path_name = pathPrefixFit + sys.argv[3]
             else:
-                hasC2fitFile = False # Probably already analyzed
+                # NO C2 FILE args
+                # Try easy name LOCAL FILE
+                C2fitFile_path_name = pathPrefixFit + 'C2.fit'
+                file_exist = os.path.isfile(C2fitFile_path_name)
+                if not file_exist:
+                    # NO C2 FILE args, Probably already analyzed
+                    hasC2fitFile = False
+                else:
+                    # NO C2 FILE args, Use the C2.fit file
+                    hasC2fitFile = True
         else:
             # NO Args MODE, assign fixed file below
-            C2fitFile_path_name = pathPrefixFit + '240927-concept2-logbook-workout-92357194.fit'
+            C2fitFile_path_name = pathPrefixFit + '2024-09-30-16-46-00-SkiErg-11.0km-61min-concept2-v1.0-analyzed.fit'
             hasC2fitFile = True
         file_exist = os.path.isfile(C2fitFile_path_name)
         if not file_exist:
@@ -1802,18 +1847,19 @@ if activityType == 'skierg':
     # ================================================================
     recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
 
-    if hasC2fitFile:
-        print('date from C2 and watch file: ', C2timeFirstRecord, timeFirstRecord)
-        # EXIT if files do not match date
-        if C2timeFirstRecord.date() != timeFirstRecord.date(): 
-            print('====================== NOT same DATE on FIT and C2FIT')
-            exit()
-
     # Extract LAP data from FIT file
     # ================================================================
     lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
     if hasC2fitFile:
+        # Check that the no of laps are equal in TXT and FIT
+        # ================================================================
+        print('date from C2 and watch file: ', C2timeFirstRecord, timeFirstRecord)
+        if C2timeFirstRecord.date() != timeFirstRecord.date(): 
+            # EXIT if files do not match date
+            print('====================== NOT same DATE on FIT and C2FIT')
+            exit()
+
         # Merge C2 RECORDS with recordTable
         # ================================================================
         recordTable = merge_C2records_with_recordTable(recordTable, C2recordTable)
@@ -1831,16 +1877,21 @@ if activityType == 'skierg':
     # ================================================================
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
+    # Create OUT BASE FILE NAME
+    # =========================
+    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
+    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
+
     if hasC2fitFile:
         C2out_baseFileName = createBaseFileName(C2timeFirstRecord, actName, C2totDist, C2totTime, C2wktName, C2product, C2SWver)
         C2outLapTxt_file_path, C2outNewRecordCSV_file_path, C2newFitFileName = outFilePaths(pathPrefixFit, C2out_baseFileName)
     
-    out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
-    outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
-
+    # TEST Header
     if test:
         print('================ TEST =================')
 
+    # SAVE TO TXT FILE
+    # =========================
     saveSkiErgLapTable_to_txt()
 
     if hasC2fitFile:
@@ -1852,56 +1903,134 @@ if activityType == 'skierg':
 # GYMBIKE & CT
 # ================================================================
 if activityType in ['gymbike', 'ct']:
+    needNew_manualLapsFileName = True
+    hasManualLapsFile = True
 
-    needNew_inLapTxtFileName = False
+    # Assign manualLaps file if not test
+    # ================================================================
     if not test:
-        if argsCount >= 4:
-            if sys.argv[3] == 'x':
-                manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
-                manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
+        if ArgsMode:
+            if argsCount >= 4:
+                # has an args after, assume that is the C2 fit file
+                hasManualLapsFile = True
+                if sys.argv[3] in ['x','X']:
+                    # X - Argument, use 
+                    # --------------
+                    manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
+                    manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
+                    needNew_manualLapsFileName = False
+                else:
+                    # FILE - argument
+                    # --------------
+                    fileNameTemp = Path(sys.argv[3]).name
+                    dirTemp = Path(sys.argv[3]).parent
+                    print('=====> SecondArg =====> dir:',dirTemp,'file:',fileNameTemp)
+                    # Check if PATH is included in argument, for instance if opened from file explorer
+                    # ----------------------------------------------------------------------"
+                    if dirTemp.is_absolute():
+                        # FULL PATH - argument
+                        # --------------
+                        pathPrefixFit = str(dirTemp).replace('\\','/') + '/'
+                        manualLapsFileName = pathPrefixFit + fileNameTemp
+                    else:
+                        # FILE only - argument
+                        # --------------
+                        manualLapsFileName = pathPrefixFit + sys.argv[3]
             else:
-                manualLapsFileName = sys.argv[3]
-                manualLapsFileName = pathPrefixFit + manualLapsFileName
+                # NO manualLaps.txt FILE args
+                # Try easy name LOCAL FILE
+                manualLapsFileName = pathPrefixFit + 'laps.txt'
+                file_exist = os.path.isfile(manualLapsFileName)
+                if not file_exist:
+                    # NO ManualLaps FILE args, Probably already analyzed
+                    hasManualLapsFile = False
+                else:
+                    # NO ManualLaps FILE args, Use the manualLaps.txt file
+                    hasManualLapsFile = True
+            
         else:
+            # NO Args MODE, assign fixed file below
             manualLapsFileName = manualLapsPathPrefix + 'indoorBikeLapsLatest.txt'
-            needNew_inLapTxtFileName = True
-
+            hasManualLapsFile = True
         file_exist = os.path.isfile(manualLapsFileName)
         if not file_exist:
             print('---------------- Lap txtFile does not exist! ', manualLapsFileName)
             exit()
 
-    # Extract LAP data from TXT FIT file
-    # ================================================================
-    lapFromTxtTbl, lapCountTxt, totDistTxtFile = extract_lap_data_from_txt(manualLapsFileName)
-    if totDist in [0, None]: totDist = totDistTxtFile
+    if hasManualLapsFile:
+        # Extract LAP data from TXT file
+        # ================================================================
+        lapFromTxtTbl, lapCountTxt, totDistTxtFile = extract_lap_data_from_txt(manualLapsFileName)
+        if totDist in [0, None]: totDist = totDistTxtFile
 
-    # Extract RECORD and LAP data from TXT FIT file
+    # Extract RECORD and LAP data from FIT file
     # ================================================================
     recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
+
+    # Extract LAP data from FIT file
+    # ================================================================
     lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
-    # Check that the no of laps are equal in TXT and FIT
-    # ================================================================
-    print('lapCount in TXT and FIT files: ', lapCountTxt, lapCountFit)
-    if lapCountTxt != lapCountFit: exit()
+    if hasManualLapsFile:
+        # Check that the no of laps are equal in TXT and FIT
+        # ================================================================
+        print('lapCount in TXT and FIT files: ', lapCountTxt, lapCountFit)
+        if lapCountTxt != lapCountFit: 
+            # EXIT if lapCount do not match
+            print('====================== NOT same LapCountDATE in FIT and manualLaps FILE')
+            exit()
 
+        # Merge manualLaps with recordTable
+        # ================================================================
+        lapTable = merge_lapData_from_txt(lapTable, lapFromTxtTbl)
+
+    # Calc LAP TIME END in lapTable
+    # ================================================================
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
 
-    lapTable = merge_lapData_from_txt(lapTable, lapFromTxtTbl)
-
+    # Calc LAP DATA fron recordTable
+    # ================================================================
     lapTable, recordTable, totDistLastRecord = calc_lapData_from_recordTable(recordTable, lapTable)
     if totDist in [0, None]: totDist = totDistLastRecord
     
+    if hasManualLapsFile:
+        # Calc Distance amd Speed based on Cadence
+        # ================================================================
+        recordTable, lapTable = calc_dist_speed_basedOn_cadence(recordTable, lapTable)
+
+    # Calc AVG DATA in lapTable
+    # ================================================================
+    avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
+
+    # Create OUT BASE FILE NAME
+    # =========================
     out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
     outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
 
-    recordTable, lapTable = calc_dist_speed_basedOn_cadence(recordTable, lapTable)
+    if hasManualLapsFile:
+        newManualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
+        newManualLapsFileName = pathPrefixFit + newManualLapsFileName + '-LevelTotDist.txt'
 
-    avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
+    # TEST Header
+    if test:
+        print('================ TEST =================')
 
+    # SAVE TO TXT FILE
+    # =========================
+    if activityType == 'gymbike':
+        saveGymBikeLapTable_to_txt()
+    if activityType == 'ct':
+        saveCTLapTable_to_txt()
+
+    if hasManualLapsFile:
+        renameFitFile(manualLapsFileName, newManualLapsFileName)
+
+
+    """
     # LAP DISTANCES to be used if script need to be run again
-    if needNew_inLapTxtFileName:   # 
+    # -------------------------------------------------------
+    if needNew_manualLapsFileName:   # only
+        os.remove(manualLapsFileName)
         manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
         manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
     inLapTxt_file = open(manualLapsFileName, 'w')
@@ -1911,14 +2040,7 @@ if activityType in ['gymbike', 'ct']:
         lapTxtLine += ' '
         lapTxtLine += str(int(lapData['totDist']/10))
         inLapTxt_file.write (lapTxtLine + '\n')
-
-    if test:
-        print('================ TEST =================')
-
-    if activityType == 'gymbike':
-        saveGymBikeLapTable_to_txt()
-    if activityType == 'ct':
-        saveCTLapTable_to_txt()
+    """
 
 # ================================================================
 # ================================================================
