@@ -1540,8 +1540,8 @@ def outFilePaths(pathPrefixFit, out_baseFileName):
 argsCount = len(sys.argv)
 print('No of args:' + str(argsCount) + str(sys.argv))
 
-device = 'pc'
-#device = 'pc1drv'
+#device = 'pc'
+device = 'pc1drv'
 #device = 'm'
 
 # Hours to add to FIT file TIME
@@ -1610,14 +1610,14 @@ if test:
     pathPrefixFit += 'TESTfiles/'
     if activityType == 'gymbike':
         fitFile_path_name = pathPrefixFit + '2024-09-14-09-46-48-GymBike-31.2km-60.43min-Bike_5-4-3-2-1-1-2-3-4-5-epix2pro-v18.14-analyzed.fit'
-        manualLapsFileName = pathPrefixFit + 'testManualLaps-gymbike.txt'
+        manualLapsFileName = pathPrefixFit + '2024-09-14-09-46-48-GymBike-60.43min-Bike_5-4-3-2-1-1-2-3-4-5-epix2pro-v18.14-LevelTotDist.txt'
         file_exist = os.path.isfile(manualLapsFileName)
         if not file_exist:
             print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
             exit()
     elif activityType == 'ct':
         fitFile_path_name = pathPrefixFit + '2024-10-06-11-31-25-Elliptical-4.0km-20.11min-epix2pro-v18.16-analyzed.fit'
-        manualLapsFileName = pathPrefixFit + 'testManualLaps-ct.txt'
+        manualLapsFileName = pathPrefixFit + '2024-10-06-11-31-25-Elliptical-20.11min-epix2pro-v18.16-LevelTotDist.txt'
         file_exist = os.path.isfile(manualLapsFileName)
         if not file_exist:
             print('---------------- TEST Lap txtFile does not exist! ', manualLapsFileName)
@@ -1832,7 +1832,8 @@ if activityType == 'skierg':
         file_exist = os.path.isfile(C2fitFile_path_name)
         if not file_exist:
             print('---------------- C2 FIT File does not exist!')
-            exit()
+            hasC2fitFile = False
+            C2fitFile_path_name = 'No C2 FIT file used.'
 
     if hasC2fitFile:
         # Extract SESSION data and show from C2 FIT file
@@ -1903,7 +1904,7 @@ if activityType == 'skierg':
 # GYMBIKE & CT
 # ================================================================
 if activityType in ['gymbike', 'ct']:
-    needNew_manualLapsFileName = True
+    needNew_manualLapsFileName = False
     hasManualLapsFile = True
 
     # Assign manualLaps file if not test
@@ -1918,7 +1919,6 @@ if activityType in ['gymbike', 'ct']:
                     # --------------
                     manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
                     manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
-                    needNew_manualLapsFileName = False
                 else:
                     # FILE - argument
                     # --------------
@@ -1944,6 +1944,7 @@ if activityType in ['gymbike', 'ct']:
                 if not file_exist:
                     # NO ManualLaps FILE args, Probably already analyzed
                     hasManualLapsFile = False
+                    needNew_manualLapsFileName = True
                 else:
                     # NO ManualLaps FILE args, Use the manualLaps.txt file
                     hasManualLapsFile = True
@@ -1952,10 +1953,12 @@ if activityType in ['gymbike', 'ct']:
             # NO Args MODE, assign fixed file below
             manualLapsFileName = manualLapsPathPrefix + 'indoorBikeLapsLatest.txt'
             hasManualLapsFile = True
+        
         file_exist = os.path.isfile(manualLapsFileName)
         if not file_exist:
             print('---------------- Lap txtFile does not exist! ', manualLapsFileName)
-            exit()
+            hasManualLapsFile = False
+            manualLapsFileName = 'No manualLaps file used.'
 
     if hasManualLapsFile:
         # Extract LAP data from TXT file
@@ -2007,10 +2010,6 @@ if activityType in ['gymbike', 'ct']:
     out_baseFileName = createBaseFileName(timeFirstRecord, actName, totDist, totTime, wktName, product, SWver)
     outLapTxt_file_path, outNewRecordCSV_file_path, newFitFileName = outFilePaths(pathPrefixFit, out_baseFileName)
 
-    if hasManualLapsFile:
-        newManualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
-        newManualLapsFileName = pathPrefixFit + newManualLapsFileName + '-LevelTotDist.txt'
-
     # TEST Header
     if test:
         print('================ TEST =================')
@@ -2022,25 +2021,25 @@ if activityType in ['gymbike', 'ct']:
     if activityType == 'ct':
         saveCTLapTable_to_txt()
 
+    newManualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
+    newManualLapsFileName = pathPrefixFit + newManualLapsFileName + '-LevelTotDist.txt'
+
     if hasManualLapsFile:
         renameFitFile(manualLapsFileName, newManualLapsFileName)
 
-
-    """
     # LAP DISTANCES to be used if script need to be run again
     # -------------------------------------------------------
-    if needNew_manualLapsFileName:   # only
-        os.remove(manualLapsFileName)
-        manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
-        manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
-    inLapTxt_file = open(manualLapsFileName, 'w')
-    for lapData in lapTable:
-        lapTxtLine = ''
-        lapTxtLine += str(lapData['level'])
-        lapTxtLine += ' '
-        lapTxtLine += str(int(lapData['totDist']/10))
-        inLapTxt_file.write (lapTxtLine + '\n')
-    """
+    if needNew_manualLapsFileName:
+        #os.remove(manualLapsFileName)
+        #manualLapsFileName = createBaseFileName(startTime, actName, '', totTime, wktName, product, SWver)
+        #manualLapsFileName = pathPrefixFit + manualLapsFileName + '-LevelTotDist.txt'
+        inLapTxt_file = open(newManualLapsFileName, 'w')
+        for lapData in lapTable:
+            lapTxtLine = ''
+            lapTxtLine += str(lapData['level'])
+            lapTxtLine += ' '
+            lapTxtLine += str(int(lapData['totDist']/10))
+            inLapTxt_file.write (lapTxtLine + '\n')
 
 # ================================================================
 # ================================================================
