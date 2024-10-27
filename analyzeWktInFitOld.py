@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 from datetime import datetime, time, timedelta
 import pytz
@@ -691,9 +691,7 @@ def extract_lap_data_from_fit(fitFile_path_name, startWithWktStep):
                 else:
                     wktStepType = 'active'
             lapTable[0]['wktStepType'] = 'warmup'
-    #lapTable[len(lapTable) - 4]['wktStepType'] = 'rest'
-    #lapTable[len(lapTable) - 2]['wktStepType'] = 'active'
-    lapTable[len(lapTable) - 1]['wktStepType'] = 'cooldown'
+            lapTable[len(lapTable) - 1]['wktStepType'] = 'cooldown'
 
     #lapCountFit = len(lapTable)
 
@@ -740,8 +738,8 @@ def merge_lapData_from_txt(lapTable, lapFromTxtTbl):
         lapData['avgSpeed'] = lapData['lapDist'] / lapData['lapTime'] # calc speed based on lapdist/laptime
         lapIx += 1
 
-    #for recordData in recordTable:
-        #recordData['CIQlevel'] = lapData[recordData['lapNo']]['level']
+    for recordData in recordTable:
+        recordData['CIQlevel'] = lapData[recordData['lapNo']]['level']
 
     return lapTable
 
@@ -803,19 +801,17 @@ def calc_lapData_from_recordTable(recordTable, lapTable):
         if recordTable[recordIx]['timestamp'] == lapTable[lapIx]['timeEnd']:
             lapTable[lapIx]['HRend'] = recordTable[recordIx]['HR']
             lapTable[lapIx]['recordIxEnd'] = recordIx
-            if not hasManualLapsFile:
-                lapTable[lapIx]['level'] = CIQlevelLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1)
-                if lapTable[lapIx]['totDist'] in [0, None]:
-                    lapTable[lapIx]['totDist'] = recordData['distance']
-                if lapTable[lapIx]['lapDist'] in [0, None]:
-                    if lapIx == 0:
-                        lapTable[lapIx]['lapDist'] = recordData['distance']
-                    else:
-                        lapTable[lapIx]['lapDist'] = recordData['distance'] - lapTable[lapIx - 1]['totDist']
+            if lapTable[lapIx]['lapDist'] in [0, None]:
+                if lapIx == 0:
+                    lapTable[lapIx]['lapDist'] = recordData['distance']
+                else:
+                    lapTable[lapIx]['lapDist'] = recordData['distance'] - lapTable[lapIx - 1]['totDist']
+            if lapTable[lapIx]['totDist'] in [0, None]:
+                lapTable[lapIx]['totDist'] = recordData['distance']
             if lapTable[lapIx]['avgSpeed'] in [0, None]:
                 lapTable[lapIx]['avgSpeed'] = lapTable[lapIx]['lapDist'] / lapTable[lapIx]['lapTime'] # calc speed based on lapdist/laptime
             if lapTable[lapIx]['avgSpeed2'] in [0, None]:
-                lapTable[lapIx]['avgSpeed2'] = speedLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1) # cal speed based on speed values
+                lapTable[lapIx]['avgSpeed2'] = speedLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1) # calc speed based on speed values
             if lapTable[lapIx]['avgCad'] in [0, None]:
                 lapTable[lapIx]['avgCad'] = cadLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1)
             if lapTable[lapIx]['avgPower'] in [0, None]:
@@ -823,7 +819,7 @@ def calc_lapData_from_recordTable(recordTable, lapTable):
             lapTable[lapIx]['avgStrokeLen'] = CIQstrokeLengthLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1)
             lapTable[lapIx]['avgDragFactor'] = CIQdragfactorLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1)
             print( CIQlevelLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1))
-            
+            lapTable[lapIx]['level'] = CIQlevelLapSum / (lapTable[lapIx]['recordIxEnd'] - lapTable[lapIx]['recordIxStart']+1)
             lapTable[lapIx]['stepLen'] = (lapTable[lapIx]['lapDist']) / (lapTable[lapIx]['avgCad'] * lapTable[lapIx]['lapTime'] / 60)  # step length acc to FFRT
             #print ('lap:'+str(lapNo)+' dist:'+str(lapTable[lapIx]['lapDist'])+' time:'+str(lapTable[lapIx]['lapTime'])+' cad:'+str(lapTable[lapIx]['avgCad'])+' stepL:'+str(lapTable[lapIx]['stepLen'])+' m/sek:'+str(lapTable[lapIx]['stepLen']*lapTable[lapIx]['avgCad']/60))
             speedLapSum = 0
@@ -1528,8 +1524,8 @@ def outFilePaths(pathPrefixFit, out_baseFileName):
 argsCount = len(sys.argv)
 print('No of args:' + str(argsCount) + str(sys.argv))
 
-device = 'pc'
-#device = 'pc1drv'
+#device = 'pc'
+device = 'pc1drv'
 #device = 'm'
 
 # Hours to add to FIT file TIME
@@ -1542,8 +1538,6 @@ fileInfo = ''
 
 # If no workout steps in file, then start with this, can be 'WarmupThenActive' OR 'WarmupAndRest' OR 'allActive'
 startWithWktStep = 'allActive'    
-
-hasManualLapsFile = False
 
 # Assign ROOT FOLDERS based on DEVICE
 if device == 'm':
@@ -1955,7 +1949,7 @@ if activityType in ['gymbike', 'ct']:
     lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
     for lapData in lapTable:
-        print(lapData['lapNo'],sec2minSec_shStr(lapData['lapTime']),lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
+        print(lapData['lapNo'],lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
 
     if hasManualLapsFile:
         # Extract LAP data from TXT file
@@ -1964,7 +1958,7 @@ if activityType in ['gymbike', 'ct']:
         totDist = totDistTxtFile
 
         for lapData in lapTable:
-            print(lapData['lapNo'],sec2minSec_shStr(lapData['lapTime']),lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
+            print(lapData['lapNo'],lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
 
         # Check that the no of laps are equal in TXT and FIT
         # ================================================================
@@ -1975,7 +1969,7 @@ if activityType in ['gymbike', 'ct']:
             exit()
 
     for lapData in lapTable:
-        print(lapData['lapNo'],sec2minSec_shStr(lapData['lapTime']),lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
+        print(lapData['lapNo'],lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
 
     # Extract RECORD and LAP data from FIT file
     # ================================================================
@@ -1991,7 +1985,7 @@ if activityType in ['gymbike', 'ct']:
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
 
     for lapData in lapTable:
-        print(lapData['lapNo'],sec2minSec_shStr(lapData['lapTime']),lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
+        print(lapData['lapNo'],lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
 
     # Calc LAP DATA fron recordTable
     # ================================================================
@@ -1999,7 +1993,7 @@ if activityType in ['gymbike', 'ct']:
     if totDist in [0, None]: totDist = totDistLastRecord
     
     for lapData in lapTable:
-        print(lapData['lapNo'],sec2minSec_shStr(lapData['lapTime']),lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
+        print(lapData['lapNo'],lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
 
     if hasManualLapsFile:
         # Calc Distance amd Speed based on Cadence
@@ -2007,14 +2001,14 @@ if activityType in ['gymbike', 'ct']:
         recordTable, lapTable = calc_dist_speed_basedOn_cadence(recordTable, lapTable)
 
     for lapData in lapTable:
-        print(lapData['lapNo'],sec2minSec_shStr(lapData['lapTime']),lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
+        print(lapData['lapNo'],lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
 
     # Calc AVG DATA in lapTable
     # ================================================================
     avgSpeedActive, avgCadActive, avgSpeedRest, avgCadRest, avgPowerActive, avgPowerRest = calc_avg_in_lapTable(lapTable)
 
     for lapData in lapTable:
-        print(lapData['lapNo'],sec2minSec_shStr(lapData['lapTime']),lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
+        print(lapData['lapNo'],lapData['lapDist'],mps2minpkm_Str(lapData['avgSpeed']),lapData['level'])
 
     # Create OUT BASE FILE NAME
     # =========================
