@@ -228,6 +228,8 @@ def extract_session_data_from_fit(fitFile_path_name, fileInfo):
     actName = actName.replace('Spin','SpinBike')
     actName = actName.replace('SBike','SpinBike')
 
+    if actName.find('pband') >= 0: actName = 'Löpband'
+    
     if actName.find('Ellipt') >= 0: actName = 'Elliptical'
     actName = actName.replace('Elliptical','CT')
     actName = actName.replace('Ellipt','Elliptical')
@@ -240,10 +242,11 @@ def extract_session_data_from_fit(fitFile_path_name, fileInfo):
         elif subSport in ['indoor_rowing', 'indoor_skiing']: actName = 'SkiErg'
         else: actName = sport + '_' + subSport
 
-    #wktName = wktName.replace('×','x').replace('(','_').replace(')','_').replace(' ','_')
     actName = actName.replace(' ','_')
 
     wktNameOrg = wktName
+    wktName = wktName.replace('×','x')
+    #wktName = wktName.replace('(','_').replace(')','_')
     wktName = wktName.replace(' (bike)','')
     wktName = wktName.replace('/','!')
     wktName = wktName.replace(' ','_')
@@ -306,7 +309,7 @@ def extract_session_data_from_fit(fitFile_path_name, fileInfo):
                 elif lap_data_field.name == 'max_power': lapData['maxPower'] = lap_data_field.value
                 elif lap_data_field.name == 'message_index': lapData['lapNo'] = lap_data_field.value + 1
                 elif lap_data_field.name == 'start_time': 
-                    lapData['timeStart'] = lap_data_field.value# + timedelta(hours=TZhours)
+                    lapData['timeStart'] = lap_data_field.value                                 # + timedelta(hours=TZhours)
                     lapData['timeStart'] = pytz.utc.localize(lapData['timeStart']).astimezone(timeZone)
                 elif lap_data_field.name == 'total_timer_time': lapData['lapTime'] = int(round(lap_data_field.value,0))
                 elif lap_data_field.name == 'total_distance': lapData['lapDist'] = lap_data_field.value
@@ -314,7 +317,7 @@ def extract_session_data_from_fit(fitFile_path_name, fileInfo):
                 #if LapIx <10: print (LapIx, lap_data_field.name, lap_data_field.value)
             #print('---------------wktStep:',LapIx, lapData['wktStepType'])
             if lapData['wktStepType'] == 4: lapData['wktStepType'] = 'recover'
-            if lapData['wktStepType'] == 5: lapData['wktStepType'] = 'active' # according to SDK, 5=interval
+            if lapData['wktStepType'] == 5: lapData['wktStepType'] = 'active'                   # according to SDK, 5=interval
             LapIx += 1
             #print('start:', lapData['timeStart'])
             lapTable.append(lapData)
@@ -437,10 +440,18 @@ def extract_lap_data_from_txt(manualLapsFileName):
 
 # ================================================================
 
-def extract_record_data_from_C2fit(fitFile_path_name):
+def extract_record_data_from_C2fit(fitFile_path_name, watchFitTotDist, startTime, C2startTime):
     print('--extract_RECORD_data_from_C2fit', datetime.now())
     
-    # Parse the FIT txtFile
+    # Calculate the correction time to sync the start time to watch fit file
+    # ----------------------------------------------------------------------
+    corrTimeSyncWatchC2 = 0
+    #if watchFitTotDist in [0, None]:
+    corrTimeSyncWatchC2 = (startTime - C2startTime).total_seconds()
+    print ((startTime - C2startTime).total_seconds())
+
+    # Parse the C2 FIT FILE
+    # ---------------------
     fitfile = fitparse.FitFile(fitFile_path_name)
     recordTable = []
     recordIx = 0
@@ -457,10 +468,8 @@ def extract_record_data_from_C2fit(fitFile_path_name):
             'power': None
         }
         for fit_record_data in fit_record:
-            #if (recordIx / 300) == (int(recordIx/300)): print (fit_record_data.name, fit_record_data.value)
             if fit_record_data.name == 'timestamp': 
-                recordData['timestamp'] = fit_record_data.value# + timedelta(hours=TZhours)
-                recordData['timestamp'] = pytz.utc.localize(recordData['timestamp']).astimezone(timeZone)
+                recordData['timestamp'] = pytz.utc.localize(fit_record_data.value).astimezone(timeZone) + timedelta(seconds = corrTimeSyncWatchC2)
             elif fit_record_data.name == 'heart_rate': recordData['HR'] = fit_record_data.value
             elif fit_record_data.name == 'distance': recordData['distance'] = fit_record_data.value
             elif fit_record_data.name == 'cadence': recordData['cadence'] = fit_record_data.value
@@ -474,35 +483,12 @@ def extract_record_data_from_C2fit(fitFile_path_name):
         timeLastRecord = recordData['timestamp']
         totDist = recordData['distance']
     
-    # FIX Cadence = 0 in BEGINNING
-    recordIx = 0
-    while (recordTable[recordIx]['cadence'] == 0 or recordTable[recordIx]['cadence'] == None) and recordIx < len(recordTable) - 1:
-        recordIx += 1
-    endZeroValueIx = recordIx
-    firstValue = recordTable[endZeroValueIx]['cadence']
-    for recordIx in range(endZeroValueIx, -1, -1):
-        recordTable[recordIx]['cadence'] = firstValue
-    
-    # FIX Power = 0 in BEGINNING
-    recordIx = 0
-    while (recordTable[recordIx]['power'] == 0 or recordTable[recordIx]['power'] == None) and recordIx < len(recordTable) - 1:
-        recordIx += 1
-    endZeroValueIx = recordIx
-    firstValue = recordTable[endZeroValueIx]['power']
-    for recordIx in range(endZeroValueIx, -1, -1):
-        recordTable[recordIx]['power'] = firstValue
-    
-    # Check for bad data, HIGH cadence
-    for recordIx in range(len(recordTable)):
-        if recordTable[recordIx]['cadence'] > 65:
-            print('HIGH cadence: ', recordTable[recordIx-1]['cadence'], '->', recordTable[recordIx]['cadence'], ' @', recordIx)
-            recordTable[recordIx]['cadence'] = recordTable[recordIx-1]['cadence']
-
-
     print('C2record times from ' + str(timeFirstRecord) + ' to ' + str(timeLastRecord))
     print('C2Activity time: ' + str(timeLastRecord - timeFirstRecord))
     print('C2record no from 0 to ' + str(recordIx - 1),'\n')
-    
+    saveToCSVc2(recordTable)
+    #exit()
+
     return recordTable, timeFirstRecord, timeLastRecord, totDist
 
 # ================================================================
@@ -530,6 +516,7 @@ def extract_record_data_from_fit(fitFile_path_name):
             'CIQtrainSess': None,
             'CIQstrokeLen': None,
             'CIQdragfactor': None,
+            'C2timestamp':None,
             'C2speed':None,
             'C2distance':None,
             'C2HR':None,
@@ -537,17 +524,17 @@ def extract_record_data_from_fit(fitFile_path_name):
         }
         for fit_record_data in fit_record:
             if fit_record_data.name == 'cadence': recordData['cadence'] = fit_record_data.value
-            elif fit_record_data.name == 'Distance' and recordData['distance'] in [0, None]: recordData['distance'] = fit_record_data.value                                 # distance from C2 SkiErg CIQ distance
-            elif fit_record_data.name == 'distance' and recordData['distance'] in [0, None]: recordData['distance'] = fit_record_data.value         # native distance
+            elif fit_record_data.name == 'Distance' and recordData['distance'] in [0, None]: recordData['distance'] = fit_record_data.value      # distance from C2 SkiErg CIQ distance
+            elif fit_record_data.name == 'distance' and recordData['distance'] in [0, None]: recordData['distance'] = fit_record_data.value      # native distance
             elif fit_record_data.name == 'DragFactor': recordData['CIQdragfactor'] = fit_record_data.value
-            elif fit_record_data.name == 'enhanced_speed' and  recordData['speed'] in [0, None]: recordData['speed'] = fit_record_data.value      # native Speed
+            elif fit_record_data.name == 'enhanced_speed' and  recordData['speed'] in [0, None]: recordData['speed'] = fit_record_data.value     # native Speed
             elif fit_record_data.name == 'heart_rate': recordData['HR'] = fit_record_data.value
             elif fit_record_data.name == 'Level' and recordData['CIQlevel'] in [0, None]: recordData['CIQlevel'] = fit_record_data.value
             elif fit_record_data.name == 'power': recordData['power'] = fit_record_data.value
-            elif fit_record_data.name == 'Speed' and  recordData['speed'] in [0, None]: recordData['speed'] = fit_record_data.value                                       # speed from C2 SkiErg CIQ speed
+            elif fit_record_data.name == 'Speed' and  recordData['speed'] in [0, None]: recordData['speed'] = fit_record_data.value              # speed from C2 SkiErg CIQ speed
             elif fit_record_data.name == 'StrokeLength': recordData['CIQstrokeLen'] = fit_record_data.value
             elif fit_record_data.name == 'timestamp': 
-                recordData['timestamp'] = fit_record_data.value# + timedelta(hours=TZhours)
+                recordData['timestamp'] = fit_record_data.value                                                             # + timedelta(hours=TZhours)
                 recordData['timestamp'] = pytz.utc.localize(recordData['timestamp']).astimezone(timeZone)
             elif fit_record_data.name == 'Training_session': recordData['CIQtrainSess'] = fit_record_data.value
             #print(fit_record_data)
@@ -563,16 +550,40 @@ def extract_record_data_from_fit(fitFile_path_name):
     print('Activity time: ' + str(timeLastRecord - timeFirstRecord) + ' ' + str(totalTime) + 'sec')
     print('record no from 0 to ' + str(recordIx - 1),'\n')
     
-    #for recordIx in range(0, 16):
-    #    print (recordTable[recordIx]['distance'])
+    return recordTable, timeFirstRecord, timeLastRecord
+
+# ================================================================
+
+def smooth_distance_data_in_recordtable(recordTable):
+    print('--smooth_distance_data_in_recordtable', datetime.now())
+
+    tempDist = 0
+    sameDistCounter = 1
 
     # Smoothing distance records if 2 following record are the same, then calc avg for the one before and after the 2
+    # ===========================================================================0
     for recordIx in range(2, len(recordTable)-1):
+
         if recordTable[recordIx]['distance'] == recordTable[recordIx-1]['distance']:
+            sameDistCounter += 1
+        elif sameDistCounter > 1:
+            if sameDistCounter>2:print('----> Same dist in a row:',sameDistCounter,'@',recordTable[recordIx]['timestamp'],recordTable[recordIx-1]['distance'])
+            sameDistCounter = 1
+
+    for recordIx in range(2, len(recordTable)-1):
+
+        if recordTable[recordIx]['distance'] == recordTable[recordIx-1]['distance']:
+            print('======> Same dist in a row:',sameDistCounter,'@',recordTable[recordIx]['timestamp'],recordTable[recordIx-1]['distance'])
             newDistStep = ((recordTable[recordIx+1]['distance'] - recordTable[recordIx-2]['distance']) / 3)
             recordTable[recordIx-1]['distance'] = recordTable[recordIx-2]['distance'] + newDistStep
             recordTable[recordIx]['distance'] = recordTable[recordIx-2]['distance'] + newDistStep * 2
-  
+    
+    return recordTable
+
+# ================================================================
+
+def fix_empty_beginning_data_in_recordtable(recordTable, maxFixIndex):
+    print('--fix_empty_beginning_data_in_recordtable', datetime.now())
     #for recordIx in range(40):
         #print (recordTable[recordIx]['distance'], recordTable[recordIx]['C2distance'], recordTable[recordIx]['speed'], recordTable[recordIx]['C2speed'], recordTable[recordIx]['cadence'], recordTable[recordIx]['power'])
         #print (recordTable[recordIx]['speed'], recordTable[recordIx]['CIQstrokeLen'], recordTable[recordIx]['CIQdragfactor'])
@@ -580,38 +591,83 @@ def extract_record_data_from_fit(fitFile_path_name):
     
     # FIX speed = 0 in BEGINNING
     recordIx = 0
-    while (recordTable[recordIx]['speed'] in [0, None]) and recordIx < len(recordTable) - 1:
+    if len(recordTable) < maxFixIndex: 
+        maxFixIndex = len(recordTable) - 1
+
+    while (recordTable[recordIx]['speed'] in [0, None]) and recordIx < maxFixIndex:
         recordIx += 1
     endZeroValueIx = recordIx
+    print('-----------> Speed first non ZERO value:',endZeroValueIx)
     firstValue = recordTable[endZeroValueIx]['speed']
     for recordIx in range(endZeroValueIx, -1, -1):
         recordTable[recordIx]['speed'] = firstValue
     
-    # FIX CIQstrokeLen = 0 in BEGINNING
+    # FIX cadence = 0 in BEGINNING
     recordIx = 0
-    while (recordTable[recordIx]['CIQstrokeLen'] in [0, None]) and recordIx < len(recordTable) - 1:
+    while (recordTable[recordIx]['cadence'] in [0, None]) and recordIx < maxFixIndex:
         recordIx += 1
     endZeroValueIx = recordIx
-    firstValue = recordTable[endZeroValueIx]['CIQstrokeLen']
+    print('-----------> cadence first non ZERO value:',endZeroValueIx)
+    firstValue = recordTable[endZeroValueIx]['cadence']
     for recordIx in range(endZeroValueIx, -1, -1):
-        recordTable[recordIx]['CIQstrokeLen'] = firstValue
+        recordTable[recordIx]['cadence'] = firstValue
     
-    # FIX CIQdragfactor = 1 in BEGINNING
+    # FIX Power = 0 in BEGINNING
     recordIx = 0
-    while (recordTable[recordIx]['CIQdragfactor'] in [1, None]) and recordIx < len(recordTable) - 1:
+    while (recordTable[recordIx]['power'] in [0, None]) and recordIx < maxFixIndex:
         recordIx += 1
     endZeroValueIx = recordIx
-    firstValue = recordTable[endZeroValueIx]['CIQdragfactor']
+    print('-----------> power first non ZERO value:',endZeroValueIx)
+    firstValue = recordTable[endZeroValueIx]['power']
     for recordIx in range(endZeroValueIx, -1, -1):
-        recordTable[recordIx]['CIQdragfactor'] = firstValue
+        recordTable[recordIx]['power'] = firstValue
     
     #for recordIx in range(40):
         #print (recordTable[recordIx]['distance'], recordTable[recordIx]['C2distance'], recordTable[recordIx]['speed'], recordTable[recordIx]['C2speed'], recordTable[recordIx]['cadence'], recordTable[recordIx]['power'])
         #print (recordTable[recordIx]['speed'], recordTable[recordIx]['CIQstrokeLen'], recordTable[recordIx]['CIQdragfactor'])
     
     #exit()
+    return recordTable
 
-    return recordTable, timeFirstRecord, timeLastRecord
+# ================================================================
+
+def fix_empty_beginning_C2data_in_recordtable(recordTable, maxFixIndex):
+    print('--fix_empty_beginning_C2data_in_recordtable', datetime.now())
+
+    # FIX CIQstrokeLen = 0 in BEGINNING
+    recordIx = 0
+    while (recordTable[recordIx]['CIQstrokeLen'] in [0, None]) and recordIx < maxFixIndex:
+        recordIx += 1
+    endZeroValueIx = recordIx
+    print('-----------> CIQstrokeLen first non ZERO value:',endZeroValueIx)
+    firstValue = recordTable[endZeroValueIx]['CIQstrokeLen']
+    for recordIx in range(endZeroValueIx, -1, -1):
+        recordTable[recordIx]['CIQstrokeLen'] = firstValue
+    
+    # FIX CIQdragfactor = 1 in BEGINNING
+    recordIx = 0
+    while (recordTable[recordIx]['CIQdragfactor'] in [0, 1, None]) and recordIx < maxFixIndex:
+        recordIx += 1
+    endZeroValueIx = recordIx
+    print('-----------> CIQdragfactor first non ONE value:',endZeroValueIx)
+    firstValue = recordTable[endZeroValueIx]['CIQdragfactor']
+    for recordIx in range(endZeroValueIx, -1, -1):
+        recordTable[recordIx]['CIQdragfactor'] = firstValue
+    
+    return recordTable
+
+# ================================================================
+
+def fix_bad_C2data_in_recordtable(recordTable, maxCadence):
+    print('--fix_bad_C2data_in_recordtable', datetime.now())
+
+    # Check for bad data, HIGH cadence
+    for recordIx in range(len(recordTable)):
+        if recordTable[recordIx]['cadence'] > maxCadence:
+            print('HIGH cadence: ', recordTable[recordIx-1]['cadence'], '->', recordTable[recordIx]['cadence'], ' @', recordIx)
+            recordTable[recordIx]['cadence'] = recordTable[recordIx-1]['cadence']
+
+    return recordTable
 
 # ================================================================
 
@@ -663,14 +719,14 @@ def extract_lap_data_from_fit(fitFile_path_name, startWithWktStep):
             elif lap_data_field.name == 'max_power': lapData['maxPower'] = lap_data_field.value
             elif lap_data_field.name == 'message_index': lapData['lapNo'] = lap_data_field.value + 1
             elif lap_data_field.name == 'start_time': 
-                lapData['timeStart'] = lap_data_field.value# + timedelta(hours=TZhours)
+                lapData['timeStart'] = lap_data_field.value                                         # + timedelta(hours=TZhours)
                 lapData['timeStart'] = pytz.utc.localize(lapData['timeStart']).astimezone(timeZone)
             elif lap_data_field.name == 'total_timer_time': lapData['lapTime'] = int(round(lap_data_field.value,0))
             elif lap_data_field.name == 'total_distance': lapData['lapDist'] = lap_data_field.value
             #if LapIx <10: print (LapIx, lap_data_field.name, lap_data_field.value)
         #print('---------------wktStep:',LapIx, lapData['wktStepType'])
         if lapData['wktStepType'] == 4: lapData['wktStepType'] = 'recover'
-        if lapData['wktStepType'] == 5: lapData['wktStepType'] = 'active' # according to SDK, 5=interval
+        if lapData['wktStepType'] == 5: lapData['wktStepType'] = 'active'                           # according to SDK, 5=interval
         if lapData['wktStepType'] == None: lapData['wktStepType'] = 'active'
         LapIx += 1
         #print('start:', lapData['timeStart'])
@@ -701,27 +757,158 @@ def extract_lap_data_from_fit(fitFile_path_name, startWithWktStep):
 
 # ================================================================
 
-def merge_C2records_with_recordTable(recordTable, C2recordTable):
-    print('---merge_C2records_with_recordTable', datetime.now())
+def merge_C2records_timeSync_recordTable(recordTable, C2recordTable):
+    print('---merge_C2records_timeSync_recordTable', datetime.now())
+    # ========================================================================
+    # If C2 app is NOT used, there is NO watch distance data to be synced upon
+    # ========================================================================
     recordIx = 0
     C2recordIx = 0
+    pauseCorrSec = 0
 
     for recordData in recordTable:
-        if C2recordTable[C2recordIx]['distance'] <= recordData['distance']:
+        tempDist = recordData['distance']
+        if recordIx > 0:
+            if (recordTable[recordIx]['timestamp'] - recordTable[recordIx-1]['timestamp']).total_seconds() > 1:
+                print('=============> PAUSE in watch, TIMEDIFF corr applied')
+                #print(recordTable[recordIx]['timestamp'],(recordTable[recordIx]['timestamp'] - recordTable[recordIx-1]['timestamp']).total_seconds())
+                pauseCorrSec += (recordTable[recordIx]['timestamp'] - recordTable[recordIx-1]['timestamp']).total_seconds()
+
+        while (C2recordTable[C2recordIx]['timestamp'] + timedelta(seconds = pauseCorrSec)) == recordData['timestamp']:
             recordData['cadence'] = C2recordTable[C2recordIx]['cadence']
             recordData['power'] = C2recordTable[C2recordIx]['power']
-            recordData['C2speed'] = C2recordTable[C2recordIx]['speed']
-            recordData['C2distance'] = C2recordTable[C2recordIx]['distance']
+            recordData['C2timestamp'] = C2recordTable[C2recordIx]['timestamp']
+            recordData['speed'] = C2recordTable[C2recordIx]['speed']
+            recordData['distance'] = C2recordTable[C2recordIx]['distance']
             recordData['C2HR'] = C2recordTable[C2recordIx]['HR']
             C2recordIx += 1
+            if C2recordIx > (len(C2recordTable)-1): 
+                C2recordIx -= 1
+                break
+
         recordIx += 1
     
+    saveToCSVwatch(recordTable, 'testTimeSyncBefore.csv')
+    fix_empty_beginning_data_in_recordtable(recordTable, 100)
+    fix_empty_beginning_C2data_in_recordtable(recordTable, 100)
+
+    #exit()
     # FIX empty/None cadence and power records. Fill with last. Merge creates this due to not all seconds from Conccept2
+    noneC2timestampCounter = 0
     for recordIx in range(len(recordTable)):
+        if recordTable[recordIx]['distance'] == 0:
+            recordTable[recordIx]['distance'] = recordTable[recordIx-1]['distance']
         if recordTable[recordIx]['cadence'] == None:
             recordTable[recordIx]['cadence'] = recordTable[recordIx-1]['cadence']
         if recordTable[recordIx]['power'] == None:
             recordTable[recordIx]['power'] = recordTable[recordIx-1]['power']
+        if recordTable[recordIx]['speed'] == 0:
+            recordTable[recordIx]['speed'] = recordTable[recordIx-1]['speed']
+        if recordTable[recordIx]['C2speed'] == None:
+            recordTable[recordIx]['C2speed'] = recordTable[recordIx-1]['C2speed']
+        if recordTable[recordIx]['C2distance'] == None:
+            recordTable[recordIx]['C2distance'] = recordTable[recordIx-1]['C2distance']
+        if recordTable[recordIx]['C2HR'] == None:
+            recordTable[recordIx]['C2HR'] = recordTable[recordIx-1]['C2HR']
+        if recordTable[recordIx]['C2timestamp'] == None and hasC2fitFile:
+            noneC2timestampCounter += 1
+            if noneC2timestampCounter > 4:
+                recordTable[recordIx]['speed'] = 0
+                recordTable[recordIx]['cadence'] = 0
+                recordTable[recordIx]['power'] = 0
+                if noneC2timestampCounter == 5 and recordIx > 4:
+                    print ('===================> noneC2timestampCounter = 5 @',recordTable[recordIx]['timestamp'])
+                    recordTable[recordIx-1]['speed'] = 0
+                    recordTable[recordIx-1]['cadence'] = 0
+                    recordTable[recordIx-1]['power'] = 0
+                    recordTable[recordIx-2]['speed'] = 0
+                    recordTable[recordIx-2]['cadence'] = 0
+                    recordTable[recordIx-2]['power'] = 0
+                    recordTable[recordIx-3]['speed'] = 0
+                    recordTable[recordIx-3]['cadence'] = 0
+                    recordTable[recordIx-3]['power'] = 0
+        else:
+            noneC2timestampCounter = 0
+
+    saveToCSVwatch(recordTable, 'testTimeSyncAfter.csv')
+    return recordTable
+
+# ================================================================
+
+def merge_C2records_distSync_recordTable(recordTable, C2recordTable):
+    print('---merge_C2records_distSync_recordTable', datetime.now())
+    recordIx = 0
+    C2recordIx = 0
+
+    tempDist = 0
+    sameDistCounter = 1
+
+    for recordData in recordTable:
+        if recordIx > 0:
+                
+            if recordData['speed'] == recordTable[recordIx-1]['speed']:
+                sameDistCounter += 1
+            elif sameDistCounter > 1:
+                if sameDistCounter > 4: print('----> Same speed in a row:',sameDistCounter,'@',recordData['timestamp'],recordTable[recordIx-1]['speed'])
+                sameDistCounter = 1
+
+        while (C2recordTable[C2recordIx]['distance'] - 0.5) <= recordData['distance']:
+            #if pauseCorrSec > 0: print('aaa')
+            recordData['cadence'] = C2recordTable[C2recordIx]['cadence']
+            recordData['power'] = C2recordTable[C2recordIx]['power']
+            recordData['C2timestamp'] = C2recordTable[C2recordIx]['timestamp']
+            recordData['C2speed'] = C2recordTable[C2recordIx]['speed']
+            recordData['C2distance'] = C2recordTable[C2recordIx]['distance']
+            recordData['C2HR'] = C2recordTable[C2recordIx]['HR']
+            C2recordIx += 1
+            if C2recordIx > (len(C2recordTable)-1): 
+                C2recordIx -= 1
+                break
+
+        recordIx += 1
+    
+    saveToCSVwatch(recordTable, 'testBefore.csv')
+
+    fix_empty_beginning_data_in_recordtable(recordTable, 100)
+    fix_empty_beginning_C2data_in_recordtable(recordTable, 100)
+
+    # FIX empty/None cadence and power records. Fill with last. Merge creates this due to not all seconds from Conccept2
+    noneC2timestampCounter = 0
+
+    for recordIx in range(len(recordTable)):
+
+        if recordTable[recordIx]['cadence'] == None:
+            recordTable[recordIx]['cadence'] = recordTable[recordIx-1]['cadence']
+        if recordTable[recordIx]['power'] == None:
+            recordTable[recordIx]['power'] = recordTable[recordIx-1]['power']
+        if recordTable[recordIx]['C2speed'] == None:
+            recordTable[recordIx]['C2speed'] = recordTable[recordIx-1]['C2speed']
+        if recordTable[recordIx]['C2distance'] == None:
+            recordTable[recordIx]['C2distance'] = recordTable[recordIx-1]['C2distance']
+        if recordTable[recordIx]['C2HR'] == None:
+            recordTable[recordIx]['C2HR'] = recordTable[recordIx-1]['C2HR']
+
+        if recordTable[recordIx]['C2timestamp'] == None and hasC2fitFile:
+            noneC2timestampCounter += 1
+            if noneC2timestampCounter > 4:
+                recordTable[recordIx]['speed'] = 0
+                recordTable[recordIx]['cadence'] = 0
+                recordTable[recordIx]['power'] = 0
+                if noneC2timestampCounter == 5 and recordIx > 4:
+                    print ('===================> noneC2timestampCounter = 5 @',recordTable[recordIx]['timestamp'])
+                    recordTable[recordIx-1]['speed'] = 0
+                    recordTable[recordIx-1]['cadence'] = 0
+                    recordTable[recordIx-1]['power'] = 0
+                    recordTable[recordIx-2]['speed'] = 0
+                    recordTable[recordIx-2]['cadence'] = 0
+                    recordTable[recordIx-2]['power'] = 0
+                    recordTable[recordIx-3]['speed'] = 0
+                    recordTable[recordIx-3]['cadence'] = 0
+                    recordTable[recordIx-3]['power'] = 0
+        else:
+            noneC2timestampCounter = 0
+
+    saveToCSVwatch(recordTable, 'testAfter.csv')
 
     return recordTable
 
@@ -944,9 +1131,9 @@ def saveToCSV(outNewRecordCSV_file_path, saveCadence, savePower, saveLevel, save
     header += 'distance'
     if saveCadence:
         header += ';cadence'
+    header += ';speed'
     if savePower: 
         header += ';power'
-    header += ';speed'
     if saveLevel:
         header += ';level'
     if savelapTime:
@@ -961,11 +1148,11 @@ def saveToCSV(outNewRecordCSV_file_path, saveCadence, savePower, saveLevel, save
         if saveCadence:
             csvLine += ';'
             csvLine += str(record['cadence']).replace('.',',')
+        csvLine += ';'
+        csvLine += mps2kmph_alldecStr(record['speed']).replace('.',',')
         if savePower:
             csvLine += ';'
             csvLine += str(record['power']).replace('.',',')
-        csvLine += ';'
-        csvLine += mps2kmph_alldecStr(record['speed']).replace('.',',')
         if saveLevel:
             csvLine += ';'
             csvLine += str(lapTable[record['lapNo']-1]['level'])
@@ -980,6 +1167,94 @@ def saveToCSV(outNewRecordCSV_file_path, saveCadence, savePower, saveLevel, save
         csvLine += '\n'
         outNewDistTxt_file.write(csvLine)
     
+    return
+
+# ================================================================
+
+def saveToCSVwatch(recordTable, CSVname):
+
+    # CSV file with to be used to merge data in FFRT (developer tab, open in xl, paste data from csv, reimport xl)
+    outNewDistTxt_file = open(pathPrefixFit+'/'+CSVname, 'w')
+    header = ''
+    header += 'timestamp'
+    header += ';C2timestamp'
+    header += ';distance'
+    header += ';C2distance'
+    header += ';speed'
+    header += ';C2speed'
+    header += ';C2cadence'
+    header += ';C2power'
+    header += ';CIQstrokeLen'
+    header += ';CIQdragfactor'
+#    header += ';level'
+#    header += ';lapTime'
+    header += '\n'
+    outNewDistTxt_file.write(header)
+
+    for record in recordTable:
+        csvLine = ''
+        csvLine += str(record['timestamp']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['C2timestamp']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['distance']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['C2distance']).replace('.',',')
+        csvLine += ';'
+        csvLine += mps2kmph_alldecStr(record['speed']).replace('.',',')
+        csvLine += ';'
+        csvLine += mps2kmph_alldecStr(record['C2speed']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['cadence']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['power']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['CIQstrokeLen']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['CIQdragfactor']).replace('.',',')
+#        csvLine += str(lapTable[record['lapNo']-1]['level'])
+#        csvLine += ';'
+#        csvLine += str(round(lapTable[record['lapNo']-1]['lapTime']/60,1)).replace('.',',')
+#        csvLine += ';'
+        #csvLine += mps2minp500m_Str(record['speed']) #.replace(':','.')
+        csvLine += '\n'
+        outNewDistTxt_file.write(csvLine)
+    return
+
+# ================================================================
+
+def saveToCSVc2(recordTable):
+
+    # CSV file with to be used to merge data in FFRT (developer tab, open in xl, paste data from csv, reimport xl)
+    outNewDistTxt_file = open(pathPrefixFit+'/testC2.csv', 'w')
+    header = ''
+    header += ';C2timestamp'
+    header += ';C2HR'
+    header += ';C2distance'
+    header += ';C2speed'
+    header += ';C2cadence'
+    header += ';C2power'
+    header += ';pace'
+    header += '\n'
+    outNewDistTxt_file.write(header)
+
+    for record in recordTable:
+        csvLine = ''
+        csvLine += str(record['timestamp']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['HR']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['distance']).replace('.',',')
+        csvLine += ';'
+        csvLine += mps2kmph_alldecStr(record['speed']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['cadence']).replace('.',',')
+        csvLine += ';'
+        csvLine += str(record['power']).replace('.',',')
+        csvLine += ';'
+        csvLine += mps2minp500m_Str(record['speed']) #.replace(':','.')
+        csvLine += '\n'
+        outNewDistTxt_file.write(csvLine)
     return
 
 # ================================================================
@@ -1807,14 +2082,20 @@ if activityType == 'skierg':
             else:
                 # NO C2 FILE args
                 # Try easy name LOCAL FILE
-                C2fitFile_path_name = pathPrefixFit + 'C2.fit'
-                file_exist = os.path.isfile(C2fitFile_path_name)
-                if not file_exist:
+                #C2fitFile_path_name = pathPrefixFit + 'C2.fit'
+                #file_exist = os.path.isfile(C2fitFile_path_name)
+                #if not file_exist:
+                if os.path.isfile(pathPrefixFit + 'C2.fit'):
+                    # NO C2 FILE args, Use the C2.fit file
+                    C2fitFile_path_name = pathPrefixFit + 'C2.fit'
+                    hasC2fitFile = True
+                elif not os.path.isfile(pathPrefixFit + 'c2.fit'):
+                    # NO C2 FILE args, Use the c2.fit file
+                    C2fitFile_path_name = pathPrefixFit + 'c2.fit'
+                    hasC2fitFile = True
+                else:
                     # NO C2 FILE args, Probably already analyzed
                     hasC2fitFile = False
-                else:
-                    # NO C2 FILE args, Use the C2.fit file
-                    hasC2fitFile = True
         else:
             # NO Args MODE, assign fixed file below
             C2fitFile_path_name = pathPrefixFit + '2024-09-30-16-46-00-SkiErg-11.0km-61min-concept2-v1.0-analyzed.fit'
@@ -1830,31 +2111,49 @@ if activityType == 'skierg':
         # ================================================================
         C2product, C2SWver, C2totDist, C2avgSpeed, C2lapCountFit, C2sport, C2startTime, C2subSport, C2totTime, C2actName, C2wktName, fileInfo = extract_session_data_from_fit(C2fitFile_path_name, fileInfo)
 
+        # Check that dates are equal in watch FIT and C2 FIT
+        # ================================================================
+        print('date from C2 and watch file: ', C2startTime, startTime)
+        if C2startTime.date() != startTime.date(): 
+            # EXIT if files do not match date
+            print('====================== NOT same DATE on FIT and C2FIT')
+            exit()
+
         # Extract RECORD data from C2 FIT file
         # ================================================================
-        C2recordTable, C2timeFirstRecord, C2timeLastRecord, C2totDist = extract_record_data_from_C2fit(C2fitFile_path_name)
+        C2recordTable, C2timeFirstRecord, C2timeLastRecord, C2totDist = extract_record_data_from_C2fit(C2fitFile_path_name, totDist, startTime, C2startTime)
     
     # Extract RECORD data from FIT file
     # ================================================================
     recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
 
+
     # Extract LAP data from FIT file
-    # ================================================================
+    # ==============================
     lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
     if hasC2fitFile:
-        # Check that the no of laps are equal in TXT and FIT
-        # ================================================================
-        print('date from C2 and watch file: ', C2timeFirstRecord, timeFirstRecord)
-        if C2timeFirstRecord.date() != timeFirstRecord.date(): 
-            # EXIT if files do not match date
-            print('====================== NOT same DATE on FIT and C2FIT')
-            exit()
-
         # Merge C2 RECORDS with recordTable
-        # ================================================================
-        recordTable = merge_C2records_with_recordTable(recordTable, C2recordTable)
+        # =================================
+        
+        # Check if C2 APP is used, then watch distance is included and distance is best to sync on
+        # ========================================================================================
+        if totDist in [0, None]:
+            recordTable = merge_C2records_timeSync_recordTable(recordTable, C2recordTable)
+            recordTable = smooth_distance_data_in_recordtable(recordTable)
+        else:
+            recordTable = smooth_distance_data_in_recordtable(recordTable)
+            recordTable = merge_C2records_distSync_recordTable(recordTable, C2recordTable)
 
+    # Fix empty data in the beginning
+    # ===============================
+    #recordTable = fix_empty_beginning_data_in_recordtable(recordTable, 100)       # maxFixIndex = the highest recordIx that is checked for zeroValue
+    #recordTable = fix_empty_beginning_C2data_in_recordtable(recordTable, 100)     # maxFixIndex = the highest recordIx that is checked for zeroValue
+
+    # Fix bad data
+    # ================================================================
+    recordTable = fix_bad_C2data_in_recordtable(recordTable, 65)        # maxCadence allowed
+    
     # Calc LAP TIME END in lapTable
     # ================================================================
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
@@ -1981,6 +2280,10 @@ if activityType in ['gymbike', 'ct']:
     # ================================================================
     recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
 
+    # Fix empty data in the beginning LAP TIME END in lapTable
+    # ================================================================
+    recordTable = fix_empty_beginning_data_in_recordtable(recordTable, 100)   # maxFixIndex = the highest recordIx that is checked for zeroValue
+    
     if hasManualLapsFile:
         # Merge manualLaps with recordTable
         # ================================================================
@@ -2059,6 +2362,10 @@ if activityType in ['gymbike', 'ct']:
 if activityType == 'spinbike':
     recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
     
+    # Fix empty data in the beginning LAP TIME END in lapTable
+    # ================================================================
+    recordTable = fix_empty_beginning_data_in_recordtable(recordTable, 100)   # maxFixIndex = the highest recordIx that is checked for zeroValue
+    
     lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
     
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
@@ -2083,6 +2390,10 @@ if activityType == 'spinbike':
 if activityType == 'run':
     recordTable, timeFirstRecord, timeLastRecord = extract_record_data_from_fit(fitFile_path_name)
 
+    # Fix empty data in the beginning LAP TIME END in lapTable
+    # ================================================================
+    recordTable = fix_empty_beginning_data_in_recordtable(recordTable, 100)   # maxFixIndex = the highest recordIx that is checked for zeroValue
+    
     lapTable = extract_lap_data_from_fit(fitFile_path_name, startWithWktStep)
 
     lapTable = calc_lapTimeEnd_in_lapTable(lapTable, timeLastRecord)
