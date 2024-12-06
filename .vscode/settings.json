@@ -1,0 +1,5 @@
+{
+    "editor.renderWhitespace": "all",
+    "java.debug.settings.onBuildFailureProceed": true,
+    "java.dependency.packagePresentation": "hierarchical"
+}
